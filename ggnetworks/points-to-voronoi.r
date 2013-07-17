@@ -7,7 +7,7 @@ require(sp)
 require(rgeos)
 require(rgdal)
 
-source("C:/repositories/codeRepo/ R/trunk/Borr-kriging/thefuncs.R")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/Borr-kriging/thefuncs.R")
 
 # function to create voronoi polygons
 voronoipolygons <- function(x, poly) {
@@ -36,18 +36,18 @@ voronoipolygons <- function(x, poly) {
 
 # dem
 # load the grid
-dempath <- "C:/repositories/codeRepo/GIS/trunk/data/BORR/TABLE/BORR_DEM16ft_pointgrid.txt"
+dempath <- "C:/repositories/codeRepo/UCBcode-GIS/trunk/data/BORR/TABLE/BORR_DEM16ft_pointgrid.txt"
 dem <- gridtoDF(dempath)
 coordinates(dem) <- ~ projx + projy
 # load the boundary
-shp <- readOGR(dsn="C:/repositories/codeRepo/GIS/trunk/data/BORR/FEATURE/BORR_bound_noroad", 
+shp <- readOGR(dsn="C:/repositories/codeRepo/UCBcode-GIS/trunk/data/BORR/FEATURE/BORR_bound_noroad", 
                layer="BORRboundnoroad")
 
 # get network data (from MATLAB)
 # coords includes: Coords, NodesOut
-coordspath <- "C:/repositories/codeRepo/matlab/trunk/networkStuff/new/CoordNodes.mat"
+coordspath <- "C:/repositories/codeRepo/UCBcode-matlab/trunk/Sally-networkStuff/new/CoordNodes.mat"
 # metrics includes: CDj
-metricspath <- paste("C:/repositories/codeRepo/matlab/trunk/networkStuff/new/", 
+metricspath <- paste("C:/repositories/codeRepo/UCBcode-matlab/trunk/Sally-networkStuff/new/", 
 					 "Metrics_Iterated_Tmin_90.mat", sep="")
 # load the data
 coordsdat <- readMat(coordspath)
@@ -81,21 +81,21 @@ kmscale <- function(offset=0){
 miny <- min(as.data.frame(dem)$projy)
 minx <- min(as.data.frame(dem)$projx)
 
-opts <- vector("list", length=5)
+opts <- vector("list", length=6)
 opts[[1]] <- coord_fixed()
-opts[[2]] <- scale_fill_gradient(low="black", high="white")
+opts[[2]] <- theme_bw()
 opts[[3]] <- scale_y_continuous(name="y (km)", labels=kmscale(offset=miny))
 opts[[4]] <- scale_x_continuous(name="x (km)", labels=kmscale(offset=minx))
-opts[[5]] <- scale_color_gradient(low="blue", high="red")
+opts[[5]] <- scale_fill_gradient(low="blue", high="red")
+opts[[6]] <- scale_size('elevation', range=c(01, 0.1))
 
 voronoiplot <- ggplot(vn, aes(x=projx, y=projy) ) + 
-			   geom_raster(data=as.data.frame(dem), aes(fill=z) ) +
-			   #geom_contour(data=as.data.frame(dem), aes(z=z, color=..level..) ) +
-			   #geom_polygon(aes(fill=centrality, group=group), alpha=0.2) + 
-			   geom_path(aes(color=centrality, group=group) ) + 
+			   geom_polygon(aes(fill=centrality, group=group)) + 
+			   geom_contour(data=as.data.frame(dem), aes(z=z, size=..level..), 
+			                binwidth=25, color='black') +
 			   geom_text(data=as.data.frame(nodes), 
 			             aes(x=projx, y=projy, label=id), 
-						 size=2, color="black") + 
+						 size=2, color="white") + 
 			   opts
-ggsave(filename='C:/Users/Michael/Dropbox/UC Berkeley/plots/voronoi.pdf', 
+ggsave(filename='voronoi.png', 
 	   plot=voronoiplot, width=8, height=8, dpi=300)
