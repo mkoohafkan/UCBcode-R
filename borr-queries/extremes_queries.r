@@ -1,3 +1,17 @@
+query_with_props <- function(basefields, basetbl, nodefields, nodetbl='node_properties'){ 
+	paste(
+		'SELECT', 
+		paste(basetbl, '.', basefields, sep='', collapse=', '), 
+		paste(nodetbl, '.', nodefields, sep='', collapse=', '),
+		'FROM', nodetbl, 'LEFT OUTER JOIN', nodetbl, 'ON', 
+		paste(basetbl, '.nodeid = ', nodetbl, '.nodeid', sep='')
+	)
+}
+
+get_nodeprops <- function(fields){
+	paste('SELECT', paste(fields, collapse=", "), 'from node_properties')
+}
+
 get_summer_ranks <- function(field, tbl, ptile=1, desc=TRUE){
 # desc=TRUE means percent ranking is based on 'field' in descending order
 # desc=FALSE means percent ranking is based on 'field' in ascending order
