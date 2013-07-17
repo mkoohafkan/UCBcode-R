@@ -1,15 +1,15 @@
 # R function to do network plots
 require(igraph)
-source("C:/repositories/codeRepo/R/trunk/borr-queries/extremes_queries.r")
-source("C:/repositories/codeRepo/R/trunk/Borr-kriging/borr-dbfuncs.R")
-source("C:/repositories/codeRepo/R/trunk/ggnetworks/network-funcs.R")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/borr-queries/extremes_queries.r")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/Borr-kriging/borr-dbfuncs.R")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/ggnetworks/network-funcs.R")
 
-
+conn <- connectBORR()
 # get data from DB
 fields <- c('nodeid', 'result_time', 'temperature_avg', 'pc')
-query <- get_summer_ranks(fields[3], 'temphumidityhourly', 0.1, FALSE)
+query <- get_summer_ranks(fields[3], 'temphumidityhourly', 0.05, FALSE)
 # returns data.frame
-df <- datafromDB(query, fields, connectBORR())[[1]]
+df <- datafromDB(query, fields, conn)[[1]]
 
 # define synchronization
 # helper function
@@ -27,26 +27,24 @@ are_synchronized <- function(a, b, connectthresh){
 }
 
 # define vertices
-vertices <- unique(df['nodeid'])
-### CAN'T DO THIS UNTIL WE UPDATE THE NODE LOCATIONS
+vertices <- unique(df[['nodeid']])
 # SQL query
-#piece <- paste('nodeid =', nodes[1], sep=' ')
-#for(i in seq(2, numnodes, 1)) piece <- paste(piece, 'OR nodeid =', nodes[i], sep=' ')
-#vquery <- paste('SELECT nodeid, projx, projy, z FROM "node_properties" WHERE', 
-#				piece, 'ORDER BY nodeid', sep=' ')
-#vfields <- c('nodeid', 'projx', 'projy', 'z')
-#vertices <- datafromDB(vquery, vfields, connectBORR())
-###
+vquery <- paste('SELECT nodeid, projx, projy, z FROM "node_properties" WHERE', 
+				'nodeid = ', paste(vertices, collapse=' OR nodeid = '), 
+				'ORDER BY nodeid', sep=' ')
+vfields <- c('nodeid', 'projx', 'projy', 'z')
+vertices <- na.omit(datafromDB(vquery, vfields, conn)[[1]])
 
 # define edges
 edges <- as.data.frame(cbind(t(combn(vertices[['nodeid']], 2))))
 names(edges) <- c('from', 'to')
 
 # helper function to calculate distances
-calc_dists <- function(df1, df2){
+calc_dist <- function(df1, df2){
 	#df1, df2 are dataframes containing single row (the node)
 	# fields passes must included projx, projy
-	return(sqrt( (df1[['projx']] - df2[['projx']])^2 + (df1[['projy']] - df2[['projy']])^2 ) )
+	return(sqrt( (df1[['projx']] - df2[['projx']])^2 + 
+	             (df1[['projy']] - df2[['projy']])^2 ) )
 }
 
 # initialization for getting synchronization levels
@@ -64,8 +62,8 @@ for(i in seq(1, nrow(edges), 1)){
 	# get the number of records to be compared
 	samplesize[i] <- min(length(idata), length(jdata))
 	# get the distance between nodes
-	#edgedist[[i]] <- calc_dist(vertices[vertices[['nodeid']]==edges[['from']][i],],
-	#						   vertices[vertices[['nodeid']]==edges[['to']][i],])
+	edgedist[[i]] <- calc_dist(vertices[vertices[['nodeid']]==edges[['from']][i],],
+							   vertices[vertices[['nodeid']]==edges[['to']][i],])
 	# iterate through thresholds
 	for(slev in synclevels){
 		if(are_synchronized(idata, jdata, slev)){
@@ -91,7 +89,7 @@ for(i in seq(along=graphs)){
 }
 names(graphs) <- synclevels
 # to play
-tkplot(graphs[["1"]])
+tkplot(graphs[["0.85"]])
 somecliques <- maximal.cliques(graphs[["0.8"]])
 someclosenessvals <- closeness(graphs[["0.9"]])
 somedegreevals <-degree(graphs[["0.96"]])
