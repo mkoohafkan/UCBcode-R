@@ -1,4 +1,4 @@
-source("C:/repositories/codeRepo/R/trunk/Borr-kriging/thefuncs.R")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/Borr-kriging/thefuncs.R")
 basepath <- 'C:/Users/Michael/Desktop/KrigLayers/pureR/'
 dir.create(file.path(basepath, 'boxplots'), recursive=T, showWarnings=F)
 dirpath <- paste(basepath, 'boxplots/', sep="")

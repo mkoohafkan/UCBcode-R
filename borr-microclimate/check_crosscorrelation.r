@@ -1,15 +1,15 @@
 # cross-correlation!
 require(igraph)
-source("C:/repositories/codeRepo/R/trunk/borr-queries/extremes_queries.r")
-source("C:/repositories/codeRepo/R/trunk/Borr-kriging/borr-dbfuncs.R")
-source("C:/repositories/codeRepo/R/trunk/ggnetworks/network-funcs.R")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/borr-queries/extremes_queries.r")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/Borr-kriging/borr-dbfuncs.R")
+source("C:/repositories/codeRepo/UCBcode-R/trunk/ggnetworks/network-funcs.R")
 
 responsevar <- 'temperature_avg'
 basetbl <- 'temphumidityhourly'
 dbconn <- connectBORR()
 
 # get graph template
-vertices <- getnodeproperties(dbconn, basetbl, 'nodeid')
+vertices <- na.omit(getnodeproperties(dbconn, basetbl, 'nodeid'))
 edges <- as.data.frame(cbind(t(combn(vertices[['nodeid']], 2))))
 names(edges) <- c('from', 'to')
 
@@ -41,7 +41,7 @@ periods <- tmp[[2]]
 wheres <- tmp[[1]]
 rm(tmp) # clean up 
 
-# check covariances
+# check correlations
 correlations <- vector("list", length=length(periods))
 fields <- c('nodeid', 'result_time', responsevar, 'pc')
 # partition by yyyy-mm
@@ -93,3 +93,15 @@ names(correlations) <- periods
 # save the data
 save(correlations, file=paste(basetbl, '_', responsevar, 
 						      '_crosscor.RData', sep=""))
+
+# create igraph graph object
+graphs <- vector("list", length=length(correlations))
+edgesegs <- graphs
+#graphs[] <- graph.empty()
+for(i in seq(along=graphs)){
+	# take only edges with thresholds > threshold[i]
+	graphs[[i]] <- graph.data.frame(correlations[[i]],
+									directed=FALSE, vertices=vertices)
+	# for ggplotting
+	edgesegs[[i]] <- get.data.frame(graphs[[i]], what="edges")
+}
