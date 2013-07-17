@@ -13,7 +13,7 @@ require(scales)
 require(plyr)
 require(RColorBrewer)
 require(segmented)
-bp <- "C:/repositories/codeRepo/R/trunk/Borr-kriging/"
+bp <- "C:/repositories/codeRepo/UCBcode-R/trunk/Borr-kriging/"
 
 source(paste(bp, "borr-autofitmod.R", sep=""))
 source(paste(bp, "borr-dbfuncs.R", sep=""))
