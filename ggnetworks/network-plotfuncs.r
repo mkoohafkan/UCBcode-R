@@ -1,3 +1,11 @@
+adjacency_to_df <- function(adjmat){
+	# takes the matrix adjmat and converts it to the data.frame adjframe
+	# names(adjframe) = c('from', 'to', 'value')
+	adjframe <- expand.grid(from=seq(1, nrow(adjmat)), to=seq(1, ncol(adjmat)))
+	adjframe['value'] <- expand.grid(adjmat)
+	return(adjframe)
+}
+
 graph_to_dataframe(graphobj){
 	# split graphobj into vertices and edges
 	vertices <- get.data.frame(graphobj, what="vertices")
