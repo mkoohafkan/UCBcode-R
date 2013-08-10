@@ -1,3 +1,13 @@
+#######################################################################
+# name: model_extremes.r
+# author: Michael Koohafkan
+# depends: extremes_queries.r, borr-dbfuncs.r
+# purpose: using a specific table in the database, sample the 5% extremes
+# and use glmulti to develop a linear model of microclimate.
+#######################################################################
+#
+# TODO:
+
 # fit models to extreme temperatures
 require(segmented)
 require(glmulti)
