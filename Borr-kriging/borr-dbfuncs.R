@@ -1,3 +1,11 @@
+#######################################################################
+# name: borr-dbfuncs.r
+# author: Michael Koohafkan
+# purpose: function definitions for database querying and data cleaning
+#######################################################################
+#
+# TODO:
+
 require(RPostgreSQL)
 
 connectBORR <- function(){
@@ -5,23 +13,21 @@ connectBORR <- function(){
 	dbName <- 'borrmod' 
 	dbUser <- 'postgres' 
 	dbPassword <- 'borr'
-	conn <- dbConnect(drv, dbname=dbName, user=dbUser, password=dbPassword)
+	port <- 5433
+	conn <- dbConnect(drv, dbname=dbName, port=port, user=dbUser, password=dbPassword)
 	return(conn)
 }
 
-datafromDB <- function(queries, fields, conn){
-	df.list <- vector("list", length(queries))
-	for(i in 1:length(queries)){
-		raw <- dbSendQuery(conn, queries[[i]]) 
-		sampleset <- as.data.frame(fetch(raw, n=-1))
-		if(nrow(sampleset) < 1){
-			warning('empty result set returned by query, returning NULL.\n')
-		} else{
-			names(sampleset) <- fields		
-			df.list[[i]] <- cleandata(sampleset)
-		}
+datafromDB <- function(query, fields, conn){
+	raw <- dbSendQuery(conn, query) 
+	sampleset <- as.data.frame(fetch(raw, n=-1))
+	if(nrow(sampleset) < 1){
+		warning('empty result set returned by query, returning NULL.\n')
+		return(NULL)
+	} else{
+		names(sampleset) <- fields		
+		return(cleandata(sampleset))
 	}
-	return(df.list)
 }
 
 getnodeproperties <- function(conn, tbl='xserv_join_map_info', id='deviceid'){
@@ -73,13 +79,16 @@ cleandata <- function(dataset){
 		# if auxdata (boolean array of size dataset) is provided, it is assumed
 		# that FALSE entries are flat due to negligible slope
 		# first categorize data
-		cleandata <- rep(NA, length(ds))
-		cleandata[ds > 360] <- NA # bad data		
-		cleandata[ds < 0] <- "F" # assumes negative values are placeholders for flat
-		cleandata[(ds > 0 && (ds < 45 || ds >= 315) )] <- "N" # north facing slopes
-		cleandata[ds >= 45 && ds < 135] <- "E" # east facing slopes
-		cleandata[ds >= 135 && ds < 225] <- "S" # south facing slopes
-		cleandata[ds >= 225 && ds < 315] <- "W" # west facing slopes
+		flatmask <- ds < 0
+		cleandata <- abs(200 - ds)
+		cleandata[flatmask] <- 0
+		#cleandata <- rep(NA, length(ds))
+		#cleandata[ds > 360] <- NA # bad data		
+		#cleandata[ds < 0] <- "F" # assumes negative values are placeholders for flat
+		#cleandata[(ds > 0 && (ds < 45 || ds >= 315) )] <- "N" # north facing slopes
+		#cleandata[ds >= 45 && ds < 135] <- "E" # east facing slopes
+		#cleandata[ds >= 135 && ds < 225] <- "S" # south facing slopes
+		#cleandata[ds >= 225 && ds < 315] <- "W" # west facing slopes
 		return(cleandata)
 	}
 	clean_windspeed <- function(ds){ # remove negative values
@@ -99,21 +108,21 @@ cleandata <- function(dataset){
 	for(label in sort(names(dataset), decreasing=TRUE) ){ 
 		vartype <- unlist(strsplit(paste(label, collapse=""), "_"))[1]
 		if(vartype == 'temperature'){
-			dataset[label] <- clean.temp(dataset[label])
+			dataset[label] <- clean.temp(dataset[[label]])
 		} else if(vartype == 'humidity'){
-			dataset[label] <- clean.rh(dataset[label])
+			dataset[label] <- clean.rh(dataset[[label]])
 		} else if(vartype == "aspect"){
-			dataset[label] <- clean.aspect(dataset[label])
+			dataset[label] <- clean.aspect(dataset[[label]])
 		} else if(vartype == "slope"){
-			dataset[label] <- clean.slope(dataset[label])
-		} else if(vartype == "projx" || vartype == "projy"){
-			dataset[label] <- clean.xy(dataset[label])
-		} else if(vartype == "z"){
-			dataset[label] <- clean.z(dataset[label])
+			dataset[label] <- clean.slope(dataset[[label]])
+		} else if(any(vartype == c("projx", "projy"))){
+			dataset[label] <- clean.xy(dataset[[label]])
+		} else if(any(vartype == c("z", 'relz1500ft', 'relz500ft'))){
+			dataset[label] <- clean.z(dataset[[label]])
 		}else if(vartype == "windspeed"){
-			dataset[label]<- clean_windspeed(dataset[label])
+			dataset[label]<- clean_windspeed(dataset[[label]])
 		}else if(vartype == "winddir"){
-			dataset[label]<- clean_aspect(dataset[label])
+			#dataset[label]<- clean_aspect(dataset[[label]])
 		}
 	}
 	return(dataset)
