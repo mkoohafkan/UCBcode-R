@@ -1,4 +1,14 @@
-# ET formulas
+#######################################################################
+# name: borr-etfuncs.r
+# author: Michael Koohafkan
+# purpose: function definitions for a variety of ET models
+#######################################################################
+#
+# TODO: check equations for correct units, 
+# RED FLAGS: Copais
+# Hargreaves gives monthly
+# Turc gives daily
+# Copais gives what?
 
 hargreaves <- function(tmin, tmax, doy){
 	# valid for monthly data only
@@ -55,7 +65,7 @@ turc <- function(Tavg, RHavg, Rg){
 	b <- 2.094
 	C <- rep(NA, length(Tavg))
 	C[RHavg >= 50] <- 1
-	C[RHavg < 50] <- 1 + (50 - RHavg)/70
+	C[RHavg < 50] <- 1 + (50 - RHavg[RHavg < 50])/70
 	
 	return(a*C*(Rg + b)*(Tavg/(Tavg + 15) ) )
 }
