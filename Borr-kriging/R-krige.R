@@ -9,11 +9,6 @@ basepath <- 'C:/Users/Michael/Desktop/KrigLayers/pureR/daily/'
 # load the grid
 gridpath <- paste(basepath, 'basegridxyz.txt', sep="")
 basegrid <- gridtoDF(gridpath)
-### NOT NECESSARY
-# load nearest cell table
-#nearpath <- paste(basepath, 'neargridxy.csv', sep="")
-#nearxy <- data.frame(read.csv(nearpath))
-###
 
 imgtype <- '.png'
 
