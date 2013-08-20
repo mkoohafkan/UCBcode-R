@@ -3,38 +3,42 @@ process_fogrun <- function(path){
 # function processes data from an individual run, formatted like:
 # <trial name>
 # STARTING BASE VOLTAGE
-# rec 1
-# rec 2
-# rec 3
+# ...
 # ...
 # STARTING CALIBRATION VOLTAGE
-# rec 1
-# rec 2
+# ...
 # ...
 # DRY LEAF VOLTAGE
-# rec 1
-# rec 2...
+# ...
+# ...
 # BEGIN RUN
 # ...
 # ...
 # ...
-# END RUN
 # WET LEAF VOLTAGE
-# rec 1
+# ...
 # ...
 # DRY RAG VOLTAGE
-# rec 1
+# ...
 # ...
 # WET RAG VOLTAGE
-# rec 1
 # ...
+# ...
+# LAST LWS VOLTAGE
+# .
+# MAX LWS VOLTAGE
+# .
 # ENDING BASE VOLTAGE
-# rec 1
+# ...
 # ...
 # ENDING CALIBRATION VOLTAGE
-# rec 1
 # ...
-# EOF
+# ...
+# <blank line>
+# (.) is a single number, e.g. the voltage read by the LWS
+# (...) is tab delimited data copied directly from the raw data files
+# produced by CR1000. columns are: 
+# timestamp, record number, LWS voltage, load cell voltage
 	# helper functions
 	getmatch <- function(tag, dat, stopifmissing=TRUE){
 	# get indices for data components
@@ -52,11 +56,14 @@ process_fogrun <- function(path){
 	# pull numeric values 
 		values <- NULL
 		n <- idx
-		while(!is.na(as.numeric(dat[n]))){
-			values <- c(values, as.numeric(dat[n]))
+		while(!is.na(as.numeric(substr(dat[n], 1, 1)))){
+			values <- rbind(values, unlist(strsplit(dat[n], '\t')))
 			n <- n + 1
 		}
-		return(values)
+		return(data.frame(timestamp=strptime(values[, 1], "%m/%d/%Y %H:%M:%S"), 
+						  record=as.integer(values[, 2]), 
+						  LWSmV=as.numeric(values[, 3]),
+						  SEmV=as.numeric(values[, 4])))
 	}	
 	# read lines from file
 	datalines <- readLines(path)
@@ -72,7 +79,8 @@ process_fogrun <- function(path){
 	dryragidx <- getmatch('DRY RAG VOLTAGE', datalines) + 1
 	wetragidx <- getmatch('WET RAG VOLTAGE', datalines) + 1
 	startrunidx <- getmatch('BEGIN RUN', datalines) + 1
-	endrunidx <- getmatch('END RUN', datalines) - 1 
+	lastLWSidx <- getmatch('LAST LWS VOLTAGE', datalines) + 1
+	maxLWSidx <- getmatch('MAX LWS VOLTAGE', datalines) + 1
 	# get start and end base voltages
 	sbv <- scandata(datalines, startbaseidx)
 	ebv <- scandata(datalines, endbaseidx)
@@ -89,15 +97,33 @@ process_fogrun <- function(path){
 	} else {
 		ecv <- NA
 	}
+	# get LWS voltages
+	lwsvoltlast <- as.numeric(datalines[lastLWSidx])
+	lwsvoltmax <- as.numeric(datalines[maxLWSidx])
 	# get run data
-	rd <- NULL
-	for(l in seq(startrunidx, endrunidx)){
-		rd <- rbind(rd, unlist(strsplit(datalines[l], '\t')))
-	}
-	rundata <- data.frame(timestamp=strptime(rd[, 1], "%I:%M:%S %p"), 
-						  record=as.integer(rd[, 2]), LWSmV=as.numeric(rd[, 3]),
-						  SEmV=as.numeric(rd[, 4]))
+	rundata <- scandata(datalines, startrunidx)
+	runtime <- rundata[nrow(rundata), 'timestamp'] - rundata[1, 'timestamp']
 	return(list(name=name, startbasevolt=sbv, endbasevolt=ebv, dryragvolt=drv, 
-	            wetragvolt=wrv, rundata=rundata, dryleafvolt=dlv, 
-				wetleafvolt=wlv, startcalibvolt=scv, endcalibvolt=ecv))
+	            wetragvolt=wrv, rundata=rundata, dryleafvolt=dlv, runtime=runtime,
+				wetleafvolt=wlv, startcalibvolt=scv, endcalibvolt=ecv,
+				lastLWSvolt=lwsvoltlast, maxLWSvolt=lwsvoltmax))
+	# output contains
+	# name = the name of the trial
+	# startbasevolt = a collection of values in the raw data representative of the
+	#   voltage read by the sensor when only the cradle is attached
+	# endbasevolt = same concept as startbasevolt, but at the end of the trial
+	# dryragvolt = a collection of values in the raw data representative of the
+	#   voltage read by the sensor with the rag attached, before the LWS water has
+	#   been collected
+	# wetragvolt =  same concept as dryragvolt, but for the rag after it has been 
+	#   used to absorb water collected on the LWS surface
+	# startcalibvolt = a collection of values in the raw data representative of the
+	#   voltage read by the sensor when the known load is attached at the beginning
+	#   of the trial
+	# endcalibvolt = same concept as startcalibvolt, but at the end of the trial
+	# lastLWSvolt = the last voltage reported by the LWS before wiping
+	# maxLWSvolt = the highest voltage reported by the LWS during the trial
+	# rundata = the raw data for the run, starting from the dry leaf measurement
+	#   (immediately prior to turning fog generator on) and ending on the wet 
+	#   leaf measurement (immediately prior to turning fog generator off)
 }
