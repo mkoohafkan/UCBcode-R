@@ -6,7 +6,7 @@ adjacency_to_df <- function(adjmat){
 	return(adjframe)
 }
 
-graph_to_dataframe(graphobj){
+graph_to_dataframe <- function(graphobj){
 	# split graphobj into vertices and edges
 	vertices <- get.data.frame(graphobj, what="vertices")
 	edges <- get.data.frame(graphobj, what="edges")
