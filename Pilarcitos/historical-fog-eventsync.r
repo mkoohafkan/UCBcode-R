@@ -19,7 +19,6 @@ get_probabilities <- function(d, cond){
 	
 }
 
-
 # DEPRECATED split record into list of dataframes, each containing one day's record
 return_days <- function(d){
 	# expects a dataframe d

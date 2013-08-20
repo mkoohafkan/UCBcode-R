@@ -1,143 +1,72 @@
-# column 1 is date
-# column 2 is Half Moon Bay road, 6am
-# column 3 is Half Moon Bay road, 9am
-# column 4 is Half Moon Bay road, 12pm
-# column 5 is Half Moon Bay road, 3pm
-# column 6 is Half Moon Bay road, 6pm
-# column 7 is Upper Dam, 6am
-# column 8 is Upper Dam, 9am
-# column 9 is Upper Dam, 12pm
-# column 10 is Upper Dam, 3pm
-# column 11 is Upper Dam, 6pm
-# column 12 is Cottage, 6am
-# column 13 is Cottage, 9am
-# column 14 is Cottage, 12pm
-# column 15 is Cottage, 3pm
-# column 16 is Cottage, 6pm
-require(reshape2)
-require(ggplot2)
-path <- paste(getwd(), '/foggystuff', sep='')
-setwd(path)
-rawdat <- as.matrix(read.csv('master.csv', header=FALSE, sep=",", skip=2))
-reclength <- nrow(rawdat)
-# turn the data into something usable
-otherdat <- as.data.frame(rbind(
-	cbind(rawdat[, c(1, 2)], rep('hmbr', reclength), rep(6, reclength)),
-	cbind(rawdat[, c(1, 3)], rep('hmbr', reclength), rep(9, reclength)),
-	cbind(rawdat[, c(1, 4)], rep('hmbr', reclength), rep(12, reclength)),
-	cbind(rawdat[, c(1, 5)], rep('hmbr', reclength), rep(15, reclength)),
-	cbind(rawdat[, c(1, 6)], rep('hmbr', reclength), rep(18, reclength)),
-	cbind(rawdat[, c(1, 7)], rep('ud', reclength), rep(6, reclength)),
-	cbind(rawdat[, c(1, 8)], rep('ud', reclength), rep(9, reclength)),
-	cbind(rawdat[, c(1, 9)], rep('ud', reclength), rep(12, reclength)),
-	cbind(rawdat[, c(1, 10)], rep('ud', reclength), rep(15, reclength)),
-	cbind(rawdat[, c(1, 11)], rep('ud', reclength), rep(18, reclength)),
-	cbind(rawdat[, c(1, 12)], rep('cot', reclength), rep(6, reclength)),
-	cbind(rawdat[, c(1, 13)], rep('cot', reclength), rep(9, reclength)),
-	cbind(rawdat[, c(1, 14)], rep('cot', reclength), rep(12, reclength)),
-	cbind(rawdat[, c(1, 15)], rep('cot', reclength), rep(15, reclength)),
-	cbind(rawdat[, c(1, 16)], rep('cot', reclength), rep(18, reclength))),
-	stringsAsFactors=FALSE)
-names(otherdat) <- c('date', 'condition', 'location', 'hour')
-# add the summer data you made earlier
-summerdat <- read.csv('summer.csv', header=TRUE, stringsAsFactors=FALSE)
-names(summerdat) <- c('date', 'hour', 'hmbr', 'ud', 'cot')
-summerdat <- melt(summerdat, id.vars=c('date', 'hour'), 
-                  measure.vars=c('hmbr', 'ud', 'cot'))
-names(summerdat)[names(summerdat)=='variable'] <- 'location'
-names(summerdat)[names(summerdat)=='value'] <- 'condition'
-# combine to get all fog data in one dataframe
-fogdat <- rbind(otherdat[, c('date', 'condition', 'location', 'hour')],
-                summerdat[, c('date', 'condition', 'location', 'hour')])
-# more cleanup
-fogdat['date'] <- as.Date(fogdat[['date']], '%m/%d/%Y')
-fogdat['hour'] <- factor(as.integer(fogdat[['hour']]), levels=c(6, 9, 12, 15, 18))
-fogdat['location'] <- factor(fogdat[['location']])
-fogdat['condition'] <- factor(fogdat[['condition']], levels=c('f', 'c', 'r'))
-# some levels renaming
-levels(fogdat[['condition']]) <- c('foggy', 'clear', 'rainy')
-levels(fogdat[['location']]) <- c('cottage', 'half moon bay road', 'upper dam')
-# some more date formatting
-fogdat['day'] <- as.integer(format(fogdat[['date']], '%d'))
-fogdat['month'] <- factor(format(fogdat[['date']], '%B'), levels=month.name)
-fogdat['year'] <- factor(format(fogdat[['date']], '%Y'))
+# set the working directory
+setwd('./Pilarcitos')
+
+# get data
+source('_datformat.r')
+
 # plot
-cbPalette <- scale_fill_discrete(drop=FALSE)
-# relative frequency by location
-relfreqloc <- function(dat, loc){
-	ggplot(dat[dat[['location']]==loc,], aes(hour, fill=condition)) + 
-	geom_bar(aes(y=..count../sapply(PANEL, FUN=function(x) sum(count[PANEL == x])/5)), 
-			 width=0.5) + 
-	facet_grid(year~month) + theme_bw() + xlab('location') + ylab('frequency') + 
-	cbPalette + ggtitle(paste('conditions at', loc))
+#source('_freqplots.r')
+
+# develop tables
+tableprep <- function(dat){
+	dat['locund'] <- paste(dat[['condition']], 'at', 
+	                       gsub(" ","", dat[['location']]))
+	table(dat[dat[['location']] == 'upper dam', 'locund'], 
+	      dat[dat[['location']] == 'half moon bay road', 'locund'],
+		  dat[dat[['location']] == 'cottage', 'locund'])
 }
-relfreqplotud <- relfreqloc(fogdat, 'upper dam')
-relfreqplothmbr <- relfreqloc(fogdat, 'half moon bay road')
-relfreqplotcot <- relfreqloc(fogdat, 'cottage')
-ggsave(filename='freqplotud.pdf', plot=relfreqplotud, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='freqplothmbr.pdf', plot=relfreqplothmbr, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='freqplotcot.pdf', plot=relfreqplotcot, dpi=300, height=15, 
-       width=15, units='in')
-# relative frequency by hour
-relfreqhour <- function(dat, hour, am=TRUE){
-	if(am){
-		tod <- 'am'
-	} else{
-		tod <- 'pm'
-		if(hour > 12) fhour <- hour - 12
+xtabprep <- function(dat){
+	dat['isfoggy'] <- dat[['condition']] == 'foggy'
+	dat['location'] <- gsub(" ","", dat[['location']]) 
+	dat['fogat'] <- rep('not', nrow(dat))
+	dat[dat[['isfoggy']], 'fogat'] <- dat[['location']][dat[['isfoggy']]]
+	table(dat[dat[['location']] == 'upperdam', 'fogat'], 
+	      dat[dat[['location']] == 'halfmoonbayroad', 'fogat'],
+		  dat[dat[['location']] == 'cottage', 'fogat'])
+}
+
+for(y in unique(fogdat[['year']])){
+	yeardat <- fogdat[fogdat[['year']] == y,]
+	yeartable <- tableprep(yeardat)
+	save(yeartable, yeardat, 
+	     file=paste('dat/', y, '_freqtable.rdata', sep=''))
+	for(m in unique(yeardat[['month']])){
+		monthdat <- yeardat[yeardat[['month']] == m,]
+		monthtable <- tableprep(monthdat)
+		save(monthtable, monthdat, 
+		     file=paste('dat/', y, '-', m, '_freqtable.rdata', sep=''))
+		for(h in unique(monthdat[['hour']])){
+			hourdat <- monthdat[monthdat[['hour']] == h,]
+			hourtable <- tableprep(hourdat)
+			save(hourtable, hourdat, 
+			     file=paste('dat/', y, '-', m, '-', h, '_freqtable.rdata', sep=''))
+		}
 	}
-	ggplot(dat[dat[['hour']]==hour,], aes(location, fill=condition)) +
-	geom_bar(aes(y=..count../sapply(PANEL, FUN=function(x) sum(count[PANEL == x])/3)), 
-			 width=0.5) + 
-	facet_grid(year~month) + theme_bw() + xlab('location') + ylab('frequency') + 
-	theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1)) + cbPalette + 
-	ggtitle(paste('conditions at ', fhour, tod, sep='')) 
+	# do year tables for summer months only
+	summeryeardat <- yeardat[yeardat[['monthnum']] > 5 & 
+							 yeardat[['monthnum']] < 9,]
+	summeryeartable <- tableprep(summeryeardat)
+	save(summeryeartable, 
+		     file=paste('dat/summer', '-', y, '_freqtable.rdata', sep=''))
+	# do the hour tables for the summer months too
+	for(h in unique(fogdat[, 'hour'])){
+		summerhourdat <- summeryeardat[summeryeardat[['hour']] == h,]
+		summerhourtable <- tableprep(summerhourdat)
+		save(summerhourtable, 
+		     file=paste('dat/summer', '-', y, '-', h, '_freqtable.rdata', sep=''))
+	}
 }
-relfreqplot6 <- relfreqhour(fogdat, 6)
-relfreqplot9 <- relfreqhour(fogdat, 9)
-relfreqplot12 <- relfreqhour(fogdat, 12, am=FALSE)
-relfreqplot15 <- relfreqhour(fogdat, 15, am=FALSE)
-relfreqplot18 <- relfreqhour(fogdat, 18, am=FALSE)
-ggsave(filename='relfreqplot6.pdf', plot=relfreqplot6, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='relfreqplot9.pdf', plot=relfreqplot9, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='relfreqplot12.pdf', plot=relfreqplot12, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='relfreqplot15.pdf', plot=relfreqplot15, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='relfreqplot18.pdf', plot=relfreqplot18, dpi=300, height=15, 
-       width=15, units='in')
-# overall relative frequency
-relfreqoverall <- function(dat){
-	ggplot(fogdat, aes(location, fill=condition)) + 
-	geom_bar(aes(y=..count../sapply(PANEL, FUN=function(x) sum(count[PANEL == x])/3)), 
-	         width=0.5) +
-	facet_grid(year~month) + xlab('location') + theme_bw() + 
-	ylab('relative frequency') + 
-	theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1)) + cbPalette + 
-	ggtitle('relative frequency of weather conditions')
-}
-relfreqplot <- relfreqoverall(fogdat)
-ggsave(filename='relfreqplot.pdf', plot=relfreqplot, dpi=300, height=15, 
-       width=15, units='in')
-# absolute frequency of weather conditions
-absfreqcond <- function(dat, cond){
-	ggplot(dat[dat[['condition']]==cond,], aes(location, fill=hour)) + 
-	geom_bar(width=0.5) + facet_grid(year~month) + theme_bw() + 
-	xlab('location') + ylab('frequency') +
-	theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1)) + 
-	cbPalette + ggtitle(paste('frequency of', cond, 'conditions')) + 
-	scale_y_continuous(limits = c(0, 150))
-}
-fogfreqplot <- absfreqcond(fogdat, 'foggy')
-rainfreqplot <- absfreqcond(fogdat, 'rainy')
-clearfreqplot <- absfreqcond(fogdat, 'clear')
-ggsave(filename='freqplotfog.pdf', plot=fogfreqplot, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='freqplotrain.pdf', plot=rainfreqplot, dpi=300, height=15, 
-       width=15, units='in')
-ggsave(filename='freqplotclear.pdf', plot=clearfreqplot, dpi=300, height=15, 
-       width=15, units='in')
+# and a table for summer all years combined
+summerdat <- fogdat[fogdat[['monthnum']] > 5 & fogdat[['monthnum']] < 9,]
+summertable <- tableprep(summerdat)
+save(summerdat, summertable, file='dat/summer_freqtable.rdata')
+
+# how to play
+# ftable(summertable)
+# ftable(prop.table(summertable, 1))
+# ftable(prop.table(summertable, 2))
+# ftable(prop.table(summertable, 3))
+
+# test for location independence
+summerfogtable <- xtabprep(summerdat)
+# xtabs(as.formula('~cottage + halfmoonbayroad + upperdam'), data=fogonly)
