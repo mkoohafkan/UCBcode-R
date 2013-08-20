@@ -51,11 +51,12 @@ fogdat <- rbind(otherdat[, c('date', 'condition', 'location', 'hour')],
 # more cleanup
 fogdat['date'] <- as.Date(fogdat[['date']], '%m/%d/%Y')
 fogdat['hour'] <- factor(as.integer(fogdat[['hour']]), levels=c(6, 9, 12, 15, 18))
-fogdat['location'] <- factor(fogdat[['location']])
+fogdat['location'] <- factor(fogdat[['location']], levels=c('hmbr', 'ud', 'cot'))
 fogdat['condition'] <- factor(fogdat[['condition']], levels=c('f', 'c', 'r'))
 # some levels renaming
 levels(fogdat[['condition']]) <- c('foggy', 'clear', 'rainy')
-levels(fogdat[['location']]) <- c('cottage', 'half moon bay road', 'upper dam')
+levels(fogdat[['location']]) <- c('half moon bay road', 'upper dam', 'cottage')
+
 # some more date formatting
 fogdat['day'] <- as.integer(format(fogdat[['date']], '%d'))
 fogdat['month'] <- factor(format(fogdat[['date']], '%B'), levels=month.name)

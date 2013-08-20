@@ -1,10 +1,11 @@
 ## analyze the 1920s SFPUC fog record using event synchronization
 
 # run parameters
-fogpath <- paste(getwd(), '/Pilarcitos/fogrecord.csv', sep='')
+setwd('./pilarcitos')
+fogpath <- 'fogrecord.csv'
 # climate is either foggy 'f', rainy 'r' or clear 'c'
-climate <- 'c' # 'c'
-lastclimate <- 'f' 
+climate <- 'f' # 'c'
+lastclimate <- 'c' 
 
 ## helper functions
 
@@ -137,11 +138,10 @@ require(ggplot2)
 v <- data.frame(id=locations, x=c(0, 0, 3), y=c(0, 3, 0))
 opts <- vector('list', length=5)
 opts[[1]] <- theme_bw()
-opts[[2]] <- scale_color_gradient2(low="grey", mid="orange", high="red", 
+opts[[2]] <- scale_color_gradient2(low="grey", mid="green", high="red", 
 								   limits=c(0, 1), midpoint=0.5)
 opts[[3]] <- scale_size('q', range=c(0.1, 1))
 fog <- ggplot(fortify_edges(quirogafixed, v)) + opts + 
        geom_segment(aes(x=x, y=y, xend=xend, yend=yend, color=sync, 
-						size=delay), arrow=arrow() )
-						
-## probabilities
+						linetype=factor(delay)), arrow=arrow() ) +
+       geom_text(data=v, aes(x=x, y=y, label=id))

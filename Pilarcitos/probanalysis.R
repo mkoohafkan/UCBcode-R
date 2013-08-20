@@ -5,7 +5,7 @@ setwd('./Pilarcitos')
 source('_datformat.r')
 
 # plot
-#source('_freqplots.r')
+source('_freqplots.r')
 
 # develop tables
 tableprep <- function(dat){

@@ -22,7 +22,8 @@ ggsave(filename='img/freqplotcot.pdf', plot=relfreqplotcot, dpi=300, height=15,
        width=15, units='in')
 # relative frequency by hour
 relfreqhour <- function(dat, hour, am=TRUE){
-	if(am){
+  fhour <- hour
+  if(am){
 		tod <- 'am'
 	} else{
 		tod <- 'pm'
@@ -80,4 +81,34 @@ ggsave(filename='img/freqplotfog.pdf', plot=fogfreqplot, dpi=300, height=15,
 ggsave(filename='img/freqplotrain.pdf', plot=rainfreqplot, dpi=300, height=15, 
        width=15, units='in')
 ggsave(filename='img/freqplotclear.pdf', plot=clearfreqplot, dpi=300, height=15, 
+       width=15, units='in')
+# all-day events
+freqallday <- function(dat, cond){
+  newdat <- NULL
+  for(d in unique(dat$date)){
+    m <- as.character(dat[dat$date==d, 'month'])[1]
+    y <- as.character(dat[dat$date==d, 'year'][1])
+    for(l in unique(dat$location)){
+      if(all(dat[dat$date==d & dat$location==l, 'condition'] == cond)){
+        newdat <- rbind(newdat, c(as.character(d), l, cond, y, m))
+      }
+    }
+  }
+  newdat <- data.frame(date=newdat[,1], location=factor(newdat[,2], 
+                        levels=c('half moon bay road', 'upper dam', 'cottage')), 
+                       condition=newdat[,3], year=factor(newdat[,4], levels=seq(1921, 1925)), 
+                       month=factor(newdat[,5], levels=month.name))
+  dayplot <- ggplot(newdat, aes(location)) + geom_bar() + facet_grid(year~month) +
+             theme_bw() + ggtitle(paste('frequency of all-day', cond, 'conditions')) +
+             xlab('location') + ylab('frequency') +  cbPalette +
+             theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1)) 
+}
+foggyallday <- freqallday(fogdat, 'foggy')
+ggsave(file='img/foggyalldayplot.pdf', plot=foggyallday, dpi=300, height=15, 
+       width=15, units='in')
+clearallday <- freqallday(fogdat, 'clear')
+ggsave(file='img/clearalldayplot.pdf', plot=clearallday, dpi=300, height=15, 
+       width=15, units='in')
+rainyallday <- freqallday(fogdat, 'rainy')
+ggsave(file='img/rainyalldayplot.pdf', plot=rainyallday, dpi=300, height=15, 
        width=15, units='in')
