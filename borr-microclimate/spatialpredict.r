@@ -1,7 +1,7 @@
 #######################################################################
 # name: spatialpredict.r
 # author: Michael Koohafkan
-# depends: borr-modelfuncs.r, borr-dbfuncs.r, borr-etfuncs.r, pointsplot.r
+# depends: borr-modelfuncs.r, borr-dbfuncs.r, borr-etfuncs.r, more-plot-funcs.r
 # purpose: using a specific table in the database and a specific set of
 # solar radiation raster layers, predict ET at each point location for
 # each day specified. Multiple ET models are used and the results are plotted
@@ -10,19 +10,24 @@
 #######################################################################
 #
 # TODO: 
-
+require(gridExtra)
 source("C:/repositories/codeRepo/UCBcode-R/trunk/borr-kriging/borr-dbfuncs.r")
-source("C:/repositories/codeRepo/UCBcode-R/trunk/borr-kriging/borr-etfuncs.r")
 source("C:/repositories/codeRepo/UCBcode-R/trunk/borr-kriging/borr-modelfuncs.r")
-source("C:/repositories/codeRepo/UCBcode-R/trunk/borr-microclimate/pointsplot.r")
-
 # path to solar radiation data
-radpath <- "C:/repositories/codeRepo/sol/nodesglobrad.csv"
-insolpath <- "C:/repositories/codeRepo/sol/nodesinsol.csv"
+radpath <- "C:/repositories/codeRepo/UCBcode-GIS/trunk/data/BORR-solar/nodesglobrad.csv"
+insolpath <- "C:/repositories/codeRepo/UCBcode-GIS/trunk/data/BORR-solar/nodesinsol.csv"
 
-# Query database to get table mnthlydat
-# names(mnthlydat) = c(deviceid, projx, projy, z, slope, aspect, canopyheight, relz1500ft, result_time)
-# choice of basetable determines monthly, daily!
+# helper function to initialize structure: 
+# creates list of lists, all periods for each response
+model_struct <- function(topnames, subnames){
+	model_struct <- vector('list', length=length(topnames))
+	names(model_struct) <- topnames	
+	for(n in topnames){
+		model_struct[[n]] <- vector('list', length=length(subnames))
+		names(model_struct[[n]]) <- subnames
+	}
+	return(model_struct)
+}
 
 # get the climate data and predictors
 responses <- c('temperature_min')
@@ -37,7 +42,6 @@ query <- paste('select', paste(fields, collapse=', '), 'from', basetable,
                whereclause, 'order by result_time, deviceid', sep=' ')
 conn <- connectBORR()
 climatedat <- datafromDB(query, fields, conn)
-
 # add a 'period' column
 # helper function to allow easy modification of data splitting
 format_periods <- function(d, pcol){
@@ -49,7 +53,6 @@ format_periods <- function(d, pcol){
 }
 climatedat['period'] <- format_periods(climatedat, 'result_time')
 periods <- unique(climatedat[['period']])
-
 # get the solar data
 radiationdat <- read.csv(radpath, header=TRUE)
 insolationdat <- read.csv(insolpath, header=TRUE)
@@ -65,21 +68,16 @@ for(p in periods){
 					  by = 'deviceid')
 	datperiod[[p]] <- merge(climatedat[climatedat[['period']] == p,], 
 	                               solardat, by = 'deviceid')
+	# use deviceid as rownames, drop redundant column
+	rownames(datperiod[[p]]) <- datperiod[[p]][['deviceid']]
+	datperiod[[p]][['deviceid']] <- NULL
 	rm(r, s, solardat)
 }
 predictors <- c(predictors, 'radavg', 'insolavg')
-
 # get model fitting summary data for each period
-# initialize structure: list of lists, all periods for each response
-modelresponse <- vector("list", length=length(responses))
-names(modelresponse) <- responses
-for(i in seq(along=modelresponse)){
-	modelresponse[[i]] <- vector("list", length=length(datperiod))
-	names(modelresponse[[i]]) <- periods
-}
-# intialize these ones too
+#initialize containers
+modelresponse <- model_struct(responses, periods)
 modelsummary <- modelresponse
-
 # fit model for each period and response
 for(p in periods){
 	for(r in responses){
@@ -93,26 +91,53 @@ for(p in periods){
 		modelsummary[[r]][[p]] <- weightable(modelresponse[[r]][[p]])[1:10,]
 	}
 }
-# develop bestmodels table
-# bestmodel columns are period, formula, modelweight
-bestmodels <- vector('list', length=length(responses))
-names(bestmodels) <- responses
+# develop bestable table
+# bestable columns are period, formula, modelweight
+bestable <- vector('list', length=length(responses))
+names(bestable) <- responses
 for(r in responses){
 	for(p in periods){
-		bestmodels[[r]] <- rbind(bestmodels[[r]], 
-         		   cbind(p, modelsummary[[r]][[p]][1, c('model', 'weights')]))
+		bestable[[r]] <- rbind(bestable[[r]], 
+      	 cbind(p, modelsummary[[r]][[p]][1, c('model', 'weights')]))
 	}
-	names(bestmodels[[r]]) <- c('period', 'model', 'weight')
+	names(bestable[[r]]) <- c('period', 'model', 'weight')
 }
-
-# helper function to check 500ft vs 1500ft buffer
-compare_buffers <- function(first, second, container){
-	for(r in names(first)){
-		for(p in names(first[[1]])){
-			container[[r]][[p]] <- glmulti(c(first[[r]][[p]]@objects, 
-			                                 second[[r]][[p]]@objects),
-										   crit='bic', method='h')
-		}
+# develop best models
+bestmodel <- model_struct(responses, periods)
+for(r in responses){
+	for(p in periods){
+		bestmodel[[r]][[p]] <- lm(modelresponse[[r]][[p]]@formulas[[1]],
+		                          datperiod[[p]])
 	}
-	return(container)
+}
+# plot everything
+modelplot <- model_struct(responses, periods)
+for(r in responses){
+	for(p in periods){
+		modelplot[[r]][[p]] <- tryCatch({
+			plot_model(bestmodel[[r]][[p]], get_all_vars(bestmodel[[r]][[p]], 
+			                                             datperiod[[p]])) + 
+			ggtitle(p)
+		}, error = function(err){
+			warning(paste('there was a problem plotting', p))
+			return(NA)
+		})
+	}
+}
+# Code to override clipping
+for(r in responses){
+	for(p in periods){
+		# create formula annotation
+		# Create the textGrobs
+		frmgrob <- textGrob(modelresponse[[r]][[p]]@formulas[[1]])
+		frmx <- min(datperiod[[p]][,'z']) + 0.5*(max(datperiod[[p]][,'z']) - 
+		                                       min(datperiod[[p]][,'z']))
+		frmy <- min(datperiod[[p]][,r]) - 0.5*(max(datperiod[[p]][,r]) - 
+		                                      min(datperiod[[p]][,r]))
+		frmannotate <- annotation_custom(grob=frmgrob, xmin=frmx, xmax=frmx, 
+		                                 ymin=frmy, ymax=frmy)
+		gt <- ggplot_gtable(ggplot_build(modelplot[[r]][[p]] + frmannotate))
+		gt$layout$clip[gt$layout$name=="panel"] <- "off"
+		grid.draw(gt)
+	}
 }
