@@ -4,6 +4,7 @@ analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, st
 # calibrationstandard = the mean and standard error of the
 #   reference mass used for calibrating load cell
 #
+require(qpcR)
 ###
   # helper functions
   get_species <- function(s){
@@ -151,6 +152,7 @@ analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, st
 	}
 	leafdat[['surfacedensity']] <- m$avg
 	leafdat[['surfacedensity.sd']] <- m$stdev
+	return(leafdat)
   }
 ###
   # get species
