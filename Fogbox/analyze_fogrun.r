@@ -7,6 +7,8 @@ analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, st
 require(qpcR)
 ###
   # helper functions
+  na.sd <- function(x) return(sd(x, na.rm=TRUE))
+  na.mean <- function(x) return(mean(x, na.rm=TRUE))
   get_species <- function(s){
     # return the species, assuming naming convention is species followed
     # by a numeric indicating the trial, e.g. blackoak1, blueoak3rep2, etc.
@@ -20,7 +22,7 @@ require(qpcR)
 	# d is a dataframe with columns corresponding to
 	#   expression (e.g. names(d) = c('a', 'b')).
 	#   first row contains means, second row contains sd
-	r <- propagate(expr, d, type=proptype)$summary
+	r <- propagate(expr, d, type=proptype, plot=FALSE)$summary
 	avg <- r$Prop[1]
 	stdev <- r$Prop[2]
 	return(data.frame(avg=avg, stdev=stdev))
@@ -29,13 +31,15 @@ require(qpcR)
     # assumes d is a dataframe of measurements with two columns
     # first column is means, second column is standard deviations 
     widedat <- data.frame(dummy=c(NA, NA)) # need a dummy column for cbind
-    nobs <- nrow(d)
+    d <- na.omit(d)
+	nobs <- nrow(d)
     for(i in seq(nobs))
       widedat <- cbind(widedat, data.frame(m=c(d[[1]][nobs], d[[2]][nobs])))
 	widedat['dummy'] <- NULL # remove the dummy column
 	names(widedat) <- paste('m', seq(nobs), sep='')
+	measnames <- names(widedat)
     widedat['nobs'] <- c(nobs, 0)
-	expr <- parse(text=paste('(', paste(names(widedat), collapse='+'), ')/nobs'))   
+	expr <- parse(text=paste('(', paste(measnames, collapse='+'), ')/nobs'))   
     return(calc_with_uncertainty(expr, widedat))
   }
   calc_drift <- function(procdata){
@@ -44,10 +48,10 @@ require(qpcR)
 	times <- seq(max(procdata$startbasevolt$timestamp), 
 	             max(procdata$endbasevolt$timestamp), by=15)
 	tsteps <- length(times)
-	calcdat <- data.frame(endbasevolt=c(mean(procdata$endbasevolt$SEmV), 
-	                                    sd(procdata$endbasevolt$SEmV)),
-						  startbasevolt=c(mean(procdata$startbasevolt$SEmV), 
-	                                      sd(procdata$startbasevolt$SEmV)),
+	calcdat <- data.frame(endbasevolt=c(na.mean(procdata$endbasevolt$SEmV), 
+	                                    na.sd(procdata$endbasevolt$SEmV)),
+						  startbasevolt=c(na.mean(procdata$startbasevolt$SEmV), 
+	                                      na.sd(procdata$startbasevolt$SEmV)),
 						  runtime=c(tsteps*15, 0))
 	equation <- expression((endbasevolt - startbasevolt)/runtime)
 	# intermediate data
@@ -80,8 +84,8 @@ require(qpcR)
     # to calculate the drift. But now we combine all those baseline
     # measurements to understand the overall variation (error) in 
     # load cell readings
-    list(avg=mean(c(startvolt$CSEmV, endvolt$CSEmV)),
-         stdev=sd(c(startvolt$CSEmV, endvolt$CSEmV)))
+    list(avg=na.mean(c(startvolt$CSEmV, endvolt$CSEmV)),
+         stdev=na.sd(c(startvolt$CSEmV, endvolt$CSEmV)))
   }  
   strip_basevoltage <- function(d, basevoltstats){
     # adds a column representing the load cell measurement stripped of
@@ -129,7 +133,7 @@ require(qpcR)
   calc_leafwatermass <- function(leafdat, dlstats, convdat){
     # leafdat is leaf of variable wetness, i.e. rundata
 	# dlstats is the dry leaf stats via stats_with_uncertainty()
-	expr <- expression((wetleaf - dryleaf)*cf)
+	expr <- expression(wetleaf*cf - dryleaf)
     m <- NULL			  
 	for(i in seq(along=leafdat$loadmV)){
 	  calcdat <- data.frame(wetleaf=c(leafdat$loadmV[i], leafdat$loadmV.sd[i]),
