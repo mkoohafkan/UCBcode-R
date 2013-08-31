@@ -1,40 +1,29 @@
 # process_fogrun.r
 process_fogrun <- function(path){
 # function processes data from an individual run, formatted like:
-# <trial name>
-# <leaf area>
+# <replace with trial name>
+# <replace with leaf area>
 # STARTING BASE VOLTAGE
-# ...
 # ...
 # STARTING CALIBRATION VOLTAGE
 # ...
-# ...
 # DRY LEAF VOLTAGE
-# ...
 # ...
 # BEGIN RUN
 # ...
-# ...
-# ...
-# WET LEAF VOLTAGE
-# ...
-# ...
+# MAX LWS VOLTAGE
+# .
+# LAST LWS VOLTAGE
+# .
 # DRY RAG VOLTAGE
-# ...
 # ...
 # WET RAG VOLTAGE
 # ...
-# ...
-# LAST LWS VOLTAGE
-# .
-# MAX LWS VOLTAGE
-# .
-# ENDING BASE VOLTAGE
-# ...
-# ...
 # ENDING CALIBRATION VOLTAGE
 # ...
+# ENDING BASE VOLTAGE
 # ...
+# EOF
 # <blank line>
 # (.) is a single number, e.g. the voltage read by the LWS
 # (...) is tab delimited data copied directly from the raw data files
@@ -78,7 +67,6 @@ process_fogrun <- function(path){
   startcalibrationidx <- getmatch('STARTING CALIBRATION VOLTAGE', datalines) + 1
   endcalibrationidx <- getmatch('ENDING CALIBRATION VOLTAGE', datalines, FALSE) + 1
   dryleafidx <- getmatch('DRY LEAF VOLTAGE', datalines) + 1
-  wetleafidx <- getmatch('WET LEAF VOLTAGE', datalines) + 1
   dryragidx <- getmatch('DRY RAG VOLTAGE', datalines) + 1
   wetragidx <- getmatch('WET RAG VOLTAGE', datalines) + 1
   startrunidx <- getmatch('BEGIN RUN', datalines) + 1
@@ -90,9 +78,8 @@ process_fogrun <- function(path){
   # get dry and wet rag voltages
   drv <- scandata(datalines, dryragidx)
   wrv <- scandata(datalines, wetragidx)
-  # get dry and wet leaf voltages
+  # get dry leaf voltages
   dlv <- scandata(datalines, dryleafidx)
-  wlv <- scandata(datalines, wetleafidx)
   # get start (and end) calibration voltages
   scv <- scandata(datalines, startcalibrationidx)
   if(!is.na(endcalibrationidx)){ 
@@ -108,8 +95,8 @@ process_fogrun <- function(path){
   runtime <- rundata[nrow(rundata), 'timestamp'] - rundata[1, 'timestamp']
   return(list(name=name, leafarea=leafarea, startbasevolt=sbv, endbasevolt=ebv, 
               dryragvolt=drv, wetragvolt=wrv, rundata=rundata, dryleafvolt=dlv, 
-			  runtime=runtime, startcalibvolt=scv, wetleafvolt=wlv, 
-			  endcalibvolt=ecv, lastLWSvolt=lwsvoltlast, maxLWSvolt=lwsvoltmax))
+			  runtime=runtime, startcalibvolt=scv, endcalibvolt=ecv, 
+			  lastLWSvolt=lwsvoltlast, maxLWSvolt=lwsvoltmax))
   # output contains
   # name = the name of the trial
   # startbasevolt = a collection of values in the raw data representative of the
