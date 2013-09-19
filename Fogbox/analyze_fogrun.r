@@ -15,7 +15,33 @@ require(qpcR)
 	n <- 1
 	while(is.na(as.numeric(substr(s, n, n))))
 	  n <- n + 1
-	return(substr(s, 1, n))
+	return(substr(s, 1, n - 1))
+  }
+  get_trial <- function(s){
+  	n <- 1
+	while(is.na(as.numeric(substr(s, n, n))))
+	  n <- n + 1
+	return(substr(s, n, n))
+  }
+  is_replicate <- function(s){
+    n <- 1
+	while(is.na(as.numeric(substr(s, n, n))))
+	  n <- n + 1
+	if(substr(s, n+1, n+3) == 'rep'){
+	  return(TRUE)
+	} else{
+	  return(FALSE)
+	}
+  }
+  is_vertical <- function(s){
+    n <- 1
+	while(is.na(as.numeric(substr(s, n, n))))
+	  n <- n + 1
+	if(substr(s, n+1, n+4) == 'vert'){
+	  return(TRUE)
+	} else{
+	  return(FALSE)
+	}
   }
   calc_with_uncertainty <- function(expr, d, proptype='stat'){
     # expr is an expression, e.g. expression(a - b)
@@ -159,8 +185,13 @@ require(qpcR)
 	return(leafdat)
   }
 ###
+  # fix leaf area since 1-in^2 scale is actually 0.9386 in^2 (dammit Ian)
+  procdata[['leafarea']] <- 0.9386*procdata$leafarea
   # get species
   procdata[['species']] <- get_species(procdata$name)
+  procdata[['trial']] <- get_trial(procdata$name)
+  procdata[['isrep']] <- is_replicate(procdata$name)
+  procdata[['isvert']] <- is_vertical(procdata$name)
   # calculate the drift
   measdrift <- calc_drift(procdata)
   # correct procdata for drift
@@ -169,8 +200,9 @@ require(qpcR)
   for(label in c('startcalibvolt', 'dryragvolt', 'wetragvolt', 
                  'dryleafvolt', 'rundata', 'endbasevolt'))
     procdata[[label]] <- correct_drift(procdata[[label]], measdrift)
-  # also add a dummy column to startbasevolt
+  # also add dummy columns to startbasevolt
   procdata$startbasevolt['CSEmV'] <- procdata$startbasevolt$SEmV
+  procdata$startbasevolt['CSEmV.sd'] <- 0
   # get baseline voltage
   bvstats <- summarize_basevolt(procdata$startbasevolt, procdata$endbasevolt)
   # strip baseline voltage from everything
