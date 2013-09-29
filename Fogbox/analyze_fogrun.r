@@ -1,10 +1,10 @@
 # analyze_fogrun.r
+require(qpcR)
 analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, stdev=0)){
 # procdata is a list of objects produced by process_fogrun
 # calibrationstandard = the mean and standard error of the
 #   reference mass used for calibrating load cell
 #
-require(qpcR)
 ###
   # helper functions
   na.sd <- function(x) return(sd(x, na.rm=TRUE))
@@ -23,14 +23,14 @@ require(qpcR)
 	  n <- n + 1
 	return(substr(s, n, n))
   }
-  is_replicate <- function(s){
+  get_replicate <- function(s){
     n <- 1
 	while(is.na(as.numeric(substr(s, n, n))))
 	  n <- n + 1
 	if(substr(s, n+1, n+3) == 'rep'){
-	  return(TRUE)
+	  return(substr(s, n+4, n+4))
 	} else{
-	  return(FALSE)
+	  return('1')
 	}
   }
   is_vertical <- function(s){
@@ -190,8 +190,8 @@ require(qpcR)
   # get species
   procdata[['species']] <- get_species(procdata$name)
   procdata[['trial']] <- get_trial(procdata$name)
-  procdata[['isrep']] <- is_replicate(procdata$name)
-  procdata[['isvert']] <- is_vertical(procdata$name)
+  procdata[['replicate']] <- get_replicate(procdata$name)
+  procdata[['isvertical']] <- is_vertical(procdata$name)
   # calculate the drift
   measdrift <- calc_drift(procdata)
   # correct procdata for drift

@@ -1,40 +1,45 @@
 # process_wrapper.r
-# wrapper for process_fogrun() and analyze_fogrun()
+# wrapper for process_fogrun(), analyze_fogrun(), fit_fogrun, plot_fogrun
 source('process_fogrun.r')
 source('analyze_fogrun.r')
+source('fit_fogrun.r')
 source('plot_fogrun.r')
+flush.console()
 
 # path to preprocessed trial data files
 setwd('./trialdata')
 # folder 'trialdata' should only contain run information
 filelist <- dir(getwd())
-datalist <- vector('list', length=length(filelist))
-flush.console()
+# remove files that are not .txt files
+for(i in rev(seq(along=filelist)))
+  if(substr(filelist[i], nchar(filelist[i]) - 3, nchar(filelist[i])) != '.txt')
+	filelist <- filelist[-i]  
 # process and analyze each run
+datalist <- vector('list', length=length(filelist))
 for(i in seq(along=filelist)){
-	cat(paste('Processing ', filelist[i], '...\n', sep=''))
-	flush.console()
-	datalist[[i]] <- analyze_fogrun(process_fogrun(filelist[i]))
-	names(datalist)[i] <- datalist[[i]]$name
+  cat(paste('Processing ', filelist[i], '...\n', sep=''))
+  flush.console()
+  datalist[[i]] <- analyze_fogrun(process_fogrun(filelist[i]))
+  names(datalist)[i] <- datalist[[i]]$name
 }
-# get data summary
-fogsummary <- data.frame(name=sapply(datalist, function(x) x$name),
-						 species=sapply(datalist, function(x) x$species),
-						 trial=sapply(datalist, function(x) x$trial),
-						 isvert=sapply(datalist, function(x) x$isvert),
-						 isrep=sapply(datalist, function(x) x$isrep),
-						 LWSwater.avg=sapply(datalist, function(x) x$LWSwatermass$avg),
-						 LWSwater.stdev=sapply(datalist, function(x) x$LWSwatermass$stdev),
-						 LWSvolt.max=sapply(datalist, function(x) x$maxLWSvolt),
-						 LWSvolt.last=sapply(datalist, function(x) x$lastLWSvolt))
+# perform fittings (adds 'summary' entry to datalist)
+datalist <- fit_fogrun(datalist)
+
 # make some plots
-res <- LWScurve(fogsummary)
-lwsmodel <- res[[1]]
-lwsplot <- res[[2]]
-rm(res)
-print(lwsplot)
-ps <- runplot(datalist)
-dev.new()
-print(ps[[1]])
-dev.new()
-print(ps[[2]])
+setwd('./plots')
+lwsplot <- lwscurveplot(datalist$summary$data, datalist$summary$lwscurve)
+ps <- allrunsplot(datalist[names(datalist) != 'summary'])
+fitratioplot <- ratioplot(datalist[['summary']]$data)
+sdp <- surfacedensityplots(datalist[names(datalist) != 'summary'])
+lsdp <- lwssurfdensplots(datalist[names(datalist) != 'summary'])
+lwsmvp <- lwsmvplots(datalist[names(datalist) != 'summary'])
+
+# save some plots
+ggsave('lwscurve.pdf', plot=lwsplot, width=11, height=8)
+ggsave('fitratioplot.pdf', plot=fitratioplot, width=11, height=8)
+for(i in seq(along=sdp))
+  ggsave(paste('surfdensplots/', datalist[[i]]$name , '_fits.pdf', sep=''), 
+         plot=arrangeGrob(sdp[[i]], lsdp[[i]], ncol=1), width=11, height=8)
+for(i in seq(along=lwsmvp))
+  ggsave(paste('surfdensandlwsplots/', datalist[[i]]$name , '_surfdens_LWSmV.pdf', sep=''), 
+         plot=arrangeGrob(sdp[[i]], lwsmvp[[i]], ncol=1), width=11, height=8)
