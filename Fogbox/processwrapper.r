@@ -10,7 +10,7 @@ flush.console()
 setwd('./trialdata')
 # folder 'trialdata' should only contain run information
 filelist <- dir(getwd())
-# remove files that are not .txt files
+# ignore files that are not .txt files
 for(i in rev(seq(along=filelist)))
   if(substr(filelist[i], nchar(filelist[i]) - 3, nchar(filelist[i])) != '.txt')
 	filelist <- filelist[-i]  
@@ -29,10 +29,17 @@ datalist <- fit_fogrun(datalist)
 setwd('./plots')
 lwsplot <- lwscurveplot(datalist$summary$data, datalist$summary$lwscurve)
 ps <- allrunsplot(datalist[names(datalist) != 'summary'])
-fitratioplot <- ratioplot(datalist[['summary']]$data)
+fitratioplot <- ratioplot(datalist$summary$data)
+speciesratioplot <- ratiomeans(datalist$summary$repavg, datalist$summary$speciesavg)
+voltrange <- voltrangeplot(datalist$summary$data)
+voltvsratio <- fitratiobyvolt(datalist$summary$data, datalist$summary$speciesavg)
 sdp <- surfacedensityplots(datalist[names(datalist) != 'summary'])
 lsdp <- lwssurfdensplots(datalist[names(datalist) != 'summary'])
 lwsmvp <- lwsmvplots(datalist[names(datalist) != 'summary'])
+vsmodels <- leafmodelvslwsmodel(datalist$summary$data)
+leafvsvolt <- leafmodelvsvoltage(datalist$summary$data)
+redwoodlast <- redwoodcurve(datalist$summary$data)
+allredwood <- allredwoodcurve(datalist)
 
 # save some plots
 ggsave('lwscurve.pdf', plot=lwsplot, width=11, height=8)
