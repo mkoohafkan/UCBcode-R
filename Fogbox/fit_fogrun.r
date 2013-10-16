@@ -1,7 +1,5 @@
 # fit_fogrun.r
-fit_fogrun <- function(datalist){
-# performs a variety of fitting procedures on the analyzed fog data
-# dl is the full datalist of outputs from analyze_fogrun()
+require(qpcR)
 #
 ###
   # helper functions
@@ -11,34 +9,47 @@ fit_fogrun <- function(datalist){
 	for(i in seq(along=dl))
 	  dl[[i]]$rundata['runfilter'] <- 1
 	# add filters; 0 means data should be ignored
+	# bay
 	dl[['bay3']]$rundata[dl[['bay3']]$rundata$record > 216, 'runfilter'] <- 0
 	dl[['bay7']]$rundata[dl[['bay7']]$rundata$record > 177, 'runfilter'] <- 0
+	# blackoak
 	dl[['blackoak1']]$rundata[dl[['blackoak1']]$rundata$record > 202, 'runfilter'] <- 0
 	dl[['blackoak3']]$rundata[dl[['blackoak3']]$rundata$record > 194, 'runfilter'] <- 0
-	dl[['blackoak5']]$rundata[dl[['blackoak5']]$rundata$record > 181 &
+	dl[['blackoak5']]$rundata[dl[['blackoak5']]$rundata$record > 181 |
 	                          dl[['blackoak5']]$rundata$record < 87, 'runfilter'] <- 0
 	dl[['blackoak6']]$rundata[dl[['blackoak6']]$rundata$record > 214, 'runfilter'] <- 0
 	dl[['blackoak6rep2']]$rundata[dl[['blackoak6rep2']]$rundata$record > 202, 'runfilter'] <- 0
 	dl[['blackoak7']]$rundata[dl[['blackoak7']]$rundata$record > 201, 'runfilter'] <- 0
 	dl[['blackoak7rep2']]$rundata[dl[['blackoak7rep2']]$rundata$record > 210, 'runfilter'] <- 0
 	dl[['blackoak7rep3']]$rundata[dl[['blackoak7rep3']]$rundata$record > 152, 'runfilter'] <- 0
+	# coastliveoak
 	dl[['coastliveoak1']]$rundata[dl[['coastliveoak1']]$rundata$record > 155, 'runfilter'] <- 0
-	dl[['coastliveoak2']]$rundata[dl[['coastliveoak2']]$rundata$record < 69 &
+	dl[['coastliveoak2']]$rundata[dl[['coastliveoak2']]$rundata$record < 69 |
 	                              dl[['coastliveoak2']]$rundata$record > 198, 'runfilter'] <- 0
 	dl[['coastliveoak3rep2']]$rundata[dl[['coastliveoak3rep2']]$rundata$record > 202, 'runfilter'] <- 0	
 	dl[['coastliveoak4']]$rundata[dl[['coastliveoak4']]$rundata$record > 223, 'runfilter'] <- 0
 	dl[['coastliveoak7']]$rundata[dl[['coastliveoak7']]$rundata$record > 204, 'runfilter'] <- 0
+	# dougfir
 	dl[['dougfir5']]$rundata[dl[['dougfir5']]$rundata$record > 190, 'runfilter'] <- 0
+	# garryoak
 	dl[['garryoak1']]$rundata[dl[['garryoak1']]$rundata$record > 207, 'runfilter'] <- 0
 	dl[['garryoak4']]$rundata[dl[['garryoak4']]$rundata$record > 213, 'runfilter'] <- 0
 	dl[['garryoak5']]$rundata[dl[['garryoak5']]$rundata$record > 269, 'runfilter'] <- 0
 	dl[['garryoak7']]$rundata[dl[['garryoak7']]$rundata$record > 182, 'runfilter'] <- 0
+	# redwood
 	dl[['redwood2']]$rundata[dl[['redwood2']]$rundata$record > 241, 'runfilter'] <- 0
 	dl[['redwood4']]$rundata[dl[['redwood4']]$rundata$record > 200, 'runfilter'] <- 0	
 	dl[['redwood5']]$rundata[dl[['redwood5']]$rundata$record > 200, 'runfilter'] <- 0
+	# valleyoak
 	dl[['valleyoak2']]$rundata[dl[['valleyoak2']]$rundata$record > 216, 'runfilter'] <- 0
 	dl[['valleyoak5']]$rundata[dl[['valleyoak5']]$rundata$record > 203, 'runfilter'] <- 0
 	dl[['valleyoak8']]$rundata[dl[['valleyoak8']]$rundata$record > 203, 'runfilter'] <- 0
+	# blueoak
+    dl[['blueoak2']]$rundata[dl[['blueoak2']]$rundata$record > 186, 'runfilter'] <- 0
+	dl[['blueoak3']]$rundata[dl[['blueoak3']]$rundata$record < 35, 'runfilter'] <- 0
+	dl[['blueoak5']]$rundata[dl[['blueoak5']]$rundata$record > 206, 'runfilter'] <- 0
+	dl[['blueoak6']]$rundata[dl[['blueoak6']]$rundata$record < 44 | 
+	                         dl[['blueoak6']]$rundata$record > 210, 'runfilter'] <- 0	
 	# also filter LWS voltage < 274
 	for(i in seq(along=dl))
 	  dl[[i]]$rundata[dl[[i]]$rundata$LWSmV < 274, 'runfilter'] <- 0
@@ -51,6 +62,14 @@ fit_fogrun <- function(datalist){
   fit_lwscurve <- function(datalist){
   # fit watermass to LWS voltage
     # calculate summary data
+	  add_run_lws <- function(sumdat, datalist){
+    sumdat['runLWS'] <- NA
+	for(n in sumdat$name){
+	  sumdat[n, 'runLWS'] <- max(datalist[[n]]$rundata$LWSmV[datalist[[n]]$rundata$runfilter])
+	}
+	return(sumdat)
+  }
+	
     fogsummary <- data.frame(name=sapply(datalist, function(x) x$name),
 	  					     species=sapply(datalist, function(x) x$species),
 						     trial=sapply(datalist, function(x) x$trial),
@@ -65,7 +84,8 @@ fit_fogrun <- function(datalist){
 						     LWSvolt.max=sapply(datalist, function(x) x$maxLWSvolt),
 						     LWSvolt.last=sapply(datalist, function(x) x$lastLWSvolt),
 							 LWSvolt.first=sapply(datalist, function(x) x$rundata$LWSmV[1]),
-						     conversionfactor.avg=sapply(datalist, function(x) x$conversionfactor$avg),
+						     runLWSvolt=sapply(datalist, function(x) max(x$rundata[x$rundata$runfilter == 1,'LWSmV'])),
+							 conversionfactor.avg=sapply(datalist, function(x) x$conversionfactor$avg),
 						     conversionfactor.stdev=sapply(datalist, function(x) x$conversionfactor$stdev))
     # fit a linear model using the LWSvolt.last values
     lastmodel <- lm(LWSwater.avg ~ LWSvolt.last, fogsummary, weights=1/LWSwater.stdev)
@@ -96,11 +116,59 @@ fit_fogrun <- function(datalist){
   }
   compare_curves <- function(lwsmod, leafmod){
     # get the leaf:lws slope ratio of the fitted curves
-    leafcoef <- leafmod$coefficients[[2]]
-    lwsmod <- lwsmod$coefficients[[2]]
-    return(leafcoef/lwsmod)
+	d <- data.frame(leafcoef=c(summary(leafmod)$coefficients[2, 1],
+	                           summary(leafmod)$coefficients[2, 2]),
+					lwscoef=c(summary(lwsmod)$coefficients[2, 1],
+	                          summary(lwsmod)$coefficients[2, 2]))
+    expr <- expression(leafcoef/lwscoef)
+	r <- calc_with_uncertainty(expr, d)
+	d['fitratio'] <- c(r$avg, r$stdev)
+	return(d)
+  }
+  merge_replicates <- function(summarydata){
+    # merge the replicates by averaging
+	alldat <- NULL
+	namelist <- c('species', 'trial', 'fitratio.avg', 'fitratio.stdev')
+	for(s in unique(summarydata$species)){
+	  for(tr in unique(as.character(summarydata[summarydata$species == s, 'trial']))){
+	    entries <- summarydata$species == s & summarydata$trial == tr &
+		           !summarydata$isvert
+		trdat <- summarydata[entries, namelist]
+		if(nrow(trdat) < 2){
+		  mergedat <- trdat
+		}else{
+		  mergedat <- cbind(s, tr, stats_with_uncertainty(trdat[, c('fitratio.avg', 
+							                                        'fitratio.stdev')]))
+	      names(mergedat) <- namelist
+		}
+		alldat <- rbind(alldat, mergedat)
+	  }
+    }
+    row.names(alldat) <- paste(alldat$species, alldat$trial, sep='')
+	return(alldat)
+  }
+  average_by_species <- function(sumdat){
+    # assumes fitratio filter already applied
+	alldat <- NULL
+	for(s in unique(sumdat$species)){
+	  speciesratio <- stats_with_uncertainty(sumdat[sumdat$species == s, 
+	                                         c('fitratio.avg', 'fitratio.stdev')])
+	  speciesratio['species'] <- s
+	  speciesratio['fitratio.min'] <- min(sumdat[sumdat$species == s, 
+	                                             'fitratio.avg'])
+	  speciesratio['fitratio.max'] <- max(sumdat[sumdat$species == s, 
+	                                             'fitratio.avg'])
+	  alldat <- rbind(alldat, speciesratio)
+	}
+	names(alldat) <- c('fitratio.avg', 'fitratio.stdev', 'species', 
+	                   'fitratio.min', 'fitratio.max')
+	return(alldat)
   }
 ###
+#
+fit_fogrun <- function(datalist){
+# performs a variety of fitting procedures on the analyzed fog data
+# dl is the full datalist of outputs from analyze_fogrun()
   # add filter to rundata
   datalist <- filter_rundata(datalist)
   # get summary data and lws curve
@@ -111,28 +179,68 @@ fit_fogrun <- function(datalist){
 	curves <- fit_curves(datalist[[i]]$rundata)
 	datalist[[i]][['lwsmodel']] <- curves[[1]]
 	datalist[[i]][['leafmodel']] <- curves[[2]]
-	datalist[[i]][['fitratio']] <- compare_curves(curves[[1]], curves[[2]])
   }
   # add fitratio to summarydata
-  fitratios <- rep(NA, nrow(summarydata$data))
-  leafcoefficients <- fitratios
-  lwscoefficients <- fitratios
-  leafr2 <- fitratios
-  lwsr2 <- fitratios
-  for(i in seq(along=fitratios)){
-    leafcoefficients[i] <- datalist[[summarydata$data$name[i]]]$leafmodel$coefficients[[2]]
-	lwscoefficients[i] <- datalist[[summarydata$data$name[i]]]$lwsmodel$coefficients[[2]]
-    fitratios[i] <- datalist[[summarydata$data$name[i]]]$fitratio
+  fitratio.avg <- rep(NA, nrow(summarydata$data))
+  fitratio.stdev <- fitratio.avg
+  leafcoefficient.avg <- fitratio.avg
+  leafcoefficient.stdev <- fitratio.avg
+  lwscoefficient.avg <- fitratio.avg
+  lwscoefficient.stdev <- fitratio.avg
+  leafr2 <- fitratio.avg
+  lwsr2 <- fitratio.avg 
+  for(i in seq(along=fitratio.avg)){
+    ratios <- compare_curves(datalist[[summarydata$data$name[i]]]$lwsmodel, 
+	                         datalist[[summarydata$data$name[i]]]$leafmodel)
+	fitratio.avg[i] <- ratios[1, 'fitratio']
+	fitratio.stdev[i] <- ratios[2, 'fitratio']
+	leafcoefficient.avg[i] <- ratios[1, 'leafcoef']
+	leafcoefficient.stdev[i] <- ratios[2, 'leafcoef']
+	lwscoefficient.avg[i] <- ratios[1, 'lwscoef']
+	lwscoefficient.stdev[i] <- ratios[2, 'lwscoef']
 	leafr2[i] <- summary(datalist[[summarydata$data$name[i]]]$leafmodel)$r.squared
 	lwsr2[i] <- summary(datalist[[summarydata$data$name[i]]]$lwsmodel)$r.squared
   }
-  summarydata$data['leafcoefficient'] <- leafcoefficients
-  summarydata$data['lwscoefficient'] <- lwscoefficients
-  summarydata$data['fitratio'] <- fitratios
+  summarydata$data['leafcoefficient.avg'] <- leafcoefficient.avg
+  summarydata$data['leafcoefficient.stdev'] <- leafcoefficient.stdev
+  summarydata$data['lwscoefficient.avg'] <- lwscoefficient.avg
+  summarydata$data['lwscoefficient.stdev'] <- lwscoefficient.stdev
+  summarydata$data['fitratio.avg'] <- fitratio.avg
+  summarydata$data['fitratio.stdev'] <- fitratio.stdev  
   summarydata$data['leafr2'] <- leafr2
   summarydata$data['lwsr2'] <- lwsr2
+  # get prediction of maximum leaf water and LWS water of curve-fitted region\
+  lwsmodelwatermass.avg <- rep(NA, nrow(summarydata$data))
+  lwsmodelwatermass.stdev <- lwsmodelwatermass.avg
+  leafmodelwatermass.avg <- lwsmodelwatermass.avg
+  leafmodelwatermass.stdev <- lwsmodelwatermass.avg
+  for(i in seq(along=lwsmodelwatermass.avg)){
+    thisrd <- datalist[[summarydata$data$name[i]]]$rundata
+  	thisrd <- thisrd[thisrd$runfilter == 1,]
+	recindx <- thisrd[nrow(thisrd), 'record']
+	nd <- data.frame(record=recindx)
+	lwsmodelvals <- predict(datalist[[summarydata$data$name[i]]]$lwsmodel, 
+	                        newdata=nd, se.fit=TRUE)
+    leafmodelvals <- predict(datalist[[summarydata$data$name[i]]]$leafmodel, 
+	                         newdata=nd, se.fit=TRUE)
+	lwsmodelwatermass.avg[i] <- lwsmodelvals$fit
+	lwsmodelwatermass.stdev[i] <- lwsmodelvals$se.fit
+	leafmodelwatermass.avg[i] <- leafmodelvals$fit
+	leafmodelwatermass.stdev[i] <- leafmodelvals$se.fit
+  }
+  summarydata$data['LWSmodelwater.avg'] <- lwsmodelwatermass.avg
+  summarydata$data['LWSmodelwater.stdev'] <- lwsmodelwatermass.stdev
+  summarydata$data['leafmodelwater.avg'] <- leafmodelwatermass.avg
+  summarydata$data['leafmodelwater.stdev'] <- lwsmodelwatermass.stdev
+  # add the ratiofilter
+  summarydata$data['ratiofilter'] <- (summarydata$data$leafmodelwater.avg - 
+                                 1.96*summarydata$data$leafmodelwater.stdev) > 
+								 1.96*summarydata$data$dryleafmass.stdev
+  summarydata[['repavg']] <- merge_replicates(summarydata$data[summarydata$data$ratiofilter,])
+  summarydata[['speciesavg']] <- average_by_species(summarydata$data)
+  summarydata[['speciesrepavg']] <- average_by_species(summarydata$repavg)
+  
   # add summarydata to datalist
   datalist[['summary']] <- summarydata
   return(datalist)
 }
-
