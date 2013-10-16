@@ -1,10 +1,5 @@
 # analyze_fogrun.r
 require(qpcR)
-analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, stdev=0)){
-# procdata is a list of objects produced by process_fogrun
-# calibrationstandard = the mean and standard error of the
-#   reference mass used for calibrating load cell
-#
 ###
   # helper functions
   na.sd <- function(x) return(sd(x, na.rm=TRUE))
@@ -60,7 +55,7 @@ analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, st
     d <- na.omit(d)
 	nobs <- nrow(d)
     for(i in seq(nobs))
-      widedat <- cbind(widedat, data.frame(m=c(d[[1]][nobs], d[[2]][nobs])))
+      widedat <- cbind(widedat, data.frame(m=c(d[[1]][i], d[[2]][i])))
 	widedat['dummy'] <- NULL # remove the dummy column
 	names(widedat) <- paste('m', seq(nobs), sep='')
 	measnames <- names(widedat)
@@ -150,7 +145,7 @@ analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, st
   }
   calc_dryleafmass <- function(d, convdat){
     # d is the dry leaf readings
-	dlstats <- stats_with_uncertainty(procdata$dryleafvolt[c('loadmV', 'loadmV.sd')])
+	dlstats <- stats_with_uncertainty(d[c('loadmV', 'loadmV.sd')])
 	expr <- expression(leafvolt*cf)
 	calcdat <- data.frame(leafvolt=c(dlstats$avg, dlstats$stdev), 
 	                       cf=c(convdat$avg, convdat$stdev))
@@ -185,6 +180,12 @@ analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, st
 	return(leafdat)
   }
 ###
+#
+analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, stdev=0)){
+# procdata is a list of objects produced by process_fogrun
+# calibrationstandard = the mean and standard error of the
+#   reference mass used for calibrating load cell
+#
   # fix leaf area since 1-in^2 scale is actually 0.9386 in^2 (dammit Ian)
   procdata[['leafarea']] <- 0.9386*procdata$leafarea
   # get species
