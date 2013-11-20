@@ -25,7 +25,7 @@ lwscurveplot <- function(fogsummary, fitmod){
 # fogsummary is the summary data
 # fitmod is the fitted LWS curve
     # build the curve
-	nd <- data.frame(LWSvolt.last=seq(274, 500))
+	nd <- data.frame(LWSvolt.last=seq(264, 600))
 	preds <- predict(fitmod, newdata=nd, type='response', se=TRUE)
 	nd['LWSwater.avg'] <- preds$fit
 	nd['LWSwater.stdev'] <- preds$se.fit
@@ -39,19 +39,18 @@ lwscurveplot <- function(fogsummary, fitmod){
 	nd['cobosline.stdev'] <- cobospreds$se.fit
 	# plot
 	ggplot(fogsummary, aes(x=LWSvolt.last, y=LWSwater.avg)) + 
-	geom_point(aes(color=species), size=1.5) +
+	geom_point(size=1.5) +
 	geom_errorbar(aes(ymin=LWSwater.avg - 1.96*LWSwater.stdev,
-	                  ymax=LWSwater.avg + 1.96*LWSwater.stdev,
-		              color=species), width=0.1) +
+	                  ymax=LWSwater.avg + 1.96*LWSwater.stdev), width=1) +
     geom_ribbon(data=nd, aes(ymin=LWSwater.avg - 1.96*LWSwater.stdev,
 	                         ymax=LWSwater.avg + 1.96*LWSwater.stdev,
-							 x=LWSvolt.last), alpha=0.3) +
-    geom_line(data=nd, aes(x=LWSvolt.last, y=LWSwater.avg), color='black') +
+							 x=LWSvolt.last), alpha=0.2) +
+    geom_line(data=nd, aes(x=LWSvolt.last, y=LWSwater.avg), color='blue', size=1, alpha=0.7) +
 	#geom_line(data=nd, aes(y=exp(cobosline.avg)), color='red', linetype='dashed') +
-	geom_text(aes(label=plab), size=2, hjust=0, alpha=0.5, position='dodge') + 	
-	annotate("text", label=lm_eqn(fitmod), x=375, y=0.225, parse=TRUE) +
-	xlab('LWS voltage (mV)') + ylab('water mass on LWS (g)') +
-    scale_x_continuous(limits=c(274, 500))
+	#geom_text(aes(label=plab), size=2, hjust=0, alpha=0.5, position='dodge') + 	
+	annotate("text", label=lm_eqn(fitmod), x=375, y=0.275, parse=TRUE) +
+	scale_y_continuous('water mass on LWS (g)') + 
+    scale_x_continuous('LWS voltage (mV)', limits=c(264, 600))
 }
 
 allrunsplot <- function(dl){
@@ -100,8 +99,8 @@ surfacedensityplots <- function(datalist){
 							    ymax=surfacedensity + 1.96*surfacedensity.stdev),
 							alpha=0.3) +
 				geom_line(data=nd) + ggtitle(datalist[[i]]$name) +
-				xlab('record') + ylab('surface density of water on leaf')
-
+				xlab('record') + ylab('surface density of water on leaf') +
+                opts(legend.position="bottom")				
 	names(wps)[i] <- datalist[[i]]$name
   }
   return(wps)
@@ -204,8 +203,40 @@ ratiomeans <- function(speciesdat, sumdat){
   ggplot(speciesdat, aes(x=species, y=fitratio.avg, 
                  ymin=fitratio.avg - 1.96*fitratio.stdev,
                  ymax=fitratio.avg + 1.96*fitratio.stdev)) + 
-  geom_point() + geom_errorbar()  + geom_point(data=sumdat, alpha=0.5)
+  geom_point() + geom_errorbar(width=0.2)  + geom_point(data=sumdat, alpha=0.5) + 
+  stat_summary(data=sumdat,fun.y=median, geom='point', color='red')
 }
+
+ratiobox <- function(sumdat){
+  ggplot(sumdat, aes(x=species, y=fitratio.avg)) + geom_boxplot(notch=TRUE)
+}
+
+bigratiobox <- function(dl){
+  # pull rundata from each trial
+  alldat <- NULL
+  for(i in seq(along=dl)){
+    # pull this trial's rundata
+    thisdat <- dl[[i]]$rundata
+	# append trial identifiers
+	thisdat['name'] <- dl[[i]]$name
+	thisdat['species'] <- dl[[i]]$species
+	thisdat['trial'] <- dl[[i]]$trial
+	thisdat['replicate'] <- dl[[i]]$replicate
+    # collate data 
+	alldat <- rbind(alldat, thisdat)
+  }
+  # calculate massratio for plotting
+  alldat['massratio'] <- alldat$surfacedensity/alldat$LWSsurfacedensity
+  # filter the data again
+  alldat[alldat$massratio < 0 | is.na(alldat$massratio), 'runfilter'] <- 0
+  filtdat <-alldat[alldat$runfilter==1,]
+  # plot it
+  ylim1 = boxplot.stats(filtdat$massratio)$stats[c(1, 5)]
+  ggplot(filtdat, aes(x=species, y=massratio)) + 
+  geom_boxplot(notch=TRUE, outlier.shape=NA) + ylim(c(0,10))
+  #coord_cartesian(ylim = ylim1*1.05)
+}
+
 
 voltrangeplot <- function(sumdat){
   # get the range of lws voltage for each species
@@ -281,4 +312,97 @@ allredwoodcurve <- function(dl){
   annotate("text", label=lm_eqn(redwoodcurve), x=0.0025, y=0.01, parse=TRUE) +
   xlab('water surface density on sensor (g cm-2)') +
   ylab('water surface density on leaf (g cm-2)')
+}
+
+massratios <- function(dl){
+  rp <- vector('list', length=length(dl))
+  llwsp <- rp
+  cp <- rp
+  for(i in seq(along=dl)){
+    dl[[i]]$rundata['minutes'] <- seq(from=0, by = 0.25, length.out=nrow(dl[[i]]$rundata))
+	dl[[i]]$rundata['modeldensity'] <- predict(dl[[i]]$leafmodel, newdata=dl[[i]]$rundata)
+	dl[[i]]$rundata['LWSmodeldensity'] <- predict(dl[[i]]$lwsmodel, newdata=dl[[i]]$rundata)
+	# whatever the measurement, if surfacedensity - 1.96*sigma < 0 toss it
+	dmask <- dl[[i]]$rundata$LWSwater - 
+	         1.96*dl[[i]]$dryleafmass$stdev < 0 
+    dl[[i]]$rundata[dmask, 'runfilter'] <- 0
+	startwindow <- dl[[i]]$rundata$minutes[match(1, dl[[i]]$rundata$runfilter)]
+	endwindow <- dl[[i]]$rundata$minutes[nrow(dl[[i]]$rundata) + 1 - match(1, rev(dl[[i]]$rundata$runfilter))]
+    rp[[i]] <- ggplot(dl[[i]]$rundata[dl[[i]]$rundata$runfilter == 1,], 
+	                  aes(x=minutes, y=surfacedensity/LWSsurfacedensity)) + 
+	           geom_point() +
+			   geom_vline(xintercept=c(startwindow, endwindow), linetype='dashed') 
+    llwsp[[i]] <- ggplot(dl[[i]]$rundata, aes(x=minutes)) + 
+	         geom_point(aes(y=surfacedensity), color='green') + 
+			 geom_point(aes(y=LWSsurfacedensity), color='blue') +
+			 geom_vline(xintercept=c(startwindow, endwindow), linetype='dashed') 
+	cp[[i]] <- arrangeGrob(llwsp[[i]], rp[[i]], ncol=1)
+  }
+  return(list(cp, llwsp, rp))
+}
+
+massplot <- function(dl){
+  alldat <- NULL
+  for(i in seq(along=dl)){
+    # pull this trial's rundata
+    thisdat <- dl[[i]]$rundata
+	# append trial identifiers
+	thisdat['name'] <- dl[[i]]$name
+	thisdat['species'] <- dl[[i]]$species
+	thisdat['trial'] <- dl[[i]]$trial
+	thisdat['replicate'] <- dl[[i]]$replicate
+	# whatever the measurement, if surfacedensity - 1.96*sigma < 0 toss it
+	dmask <- thisdat$LWSwater - 
+	         1.96*dl[[i]]$dryleafmass$stdev < 0 
+    thisdat[dmask, 'runfilter'] <- 0
+    # collate data 
+	alldat <- rbind(alldat, thisdat)
+  }
+  # filter the data
+  filtdat <- alldat#[alldat$runfilter==1,]
+  # plot everything
+  l <- vector('list', length=length(unique(filtdat$name)))
+  names(l) <- unique(filtdat$name)
+  for(n in names(l)){
+    l[[n]] <- geom_smooth(data=filtdat[filtdat$name==n,], method='lm', color='black')
+  }
+  ap <- ggplot(filtdat, aes(x=LWSsurfacedensity, y=surfacedensity, color=species)) + 
+        geom_point() + facet_wrap(~species) + geom_abline(intercept=0, slope=1, linetype='dashed') + 
+		l + geom_smooth(method='lm', color='yellow')
+  
+  # do some fitting
+  getcoeffs <- function(d){
+  # helper function
+    thisline <- summary(lm(surfacedensity ~ LWSsurfacedensity, d))
+	intercept <- thisline$coefficients[1,1]
+	intercept.sd <- thisline$coefficients[1,2]
+	slope <- thisline$coefficients[2,1]
+	slope.sd <- thisline$coefficients[2,2]
+	rsquared <- signif(thisline$r.squared, 2)
+	r <- c(intercept, intercept.sd, slope, slope.sd, rsquared)
+	names(r) <- c('intercept', 'intercept.sd', 'slope', 'slope.sd', 'rsquared')
+	return(r)
+  }
+  # fit lines to individual trials
+  sumdat <- data.frame(name=unique(filtdat$name))
+  sumdat['species'] <- NA
+  for(i in seq(nrow(sumdat)))
+    sumdat[i, 'species'] <- unique(filtdat[filtdat$name==sumdat$name[i], 'species'])
+  tres <- NULL
+  for(i in seq(nrow(sumdat)))
+    tres <- rbind(tres, getcoeffs(filtdat[filtdat$name==sumdat$name[i],]))
+  sumdat <- cbind(sumdat, tres)
+  # fit lines to species
+  speciesdat <- data.frame(species=unique(filtdat$species))
+  sres <- NULL
+  for(i in seq(nrow(speciesdat)))
+    sres <- rbind(sres, getcoeffs(filtdat[filtdat$species==speciesdat$species[i],]))
+  speciesdat <- cbind(speciesdat, sres)
+  # plot it
+  sp <- ggplot(sumdat, aes(x=species, y=slope)) + geom_point() + geom_point(data=speciesdat, color='red') + 
+        geom_errorbar(data=speciesdat, aes(ymin=slope - 1.96*slope.sd, ymax=slope + 1.96*slope.sd), width=0.2) +
+		geom_text(data=speciesdat, aes(label=rsquared), hjust=0, size=4)
+  ip <- ggplot(sumdat, aes(x=species, y=intercept)) + geom_point() + geom_point(data=speciesdat, color='red') +
+        geom_errorbar(data=speciesdat, aes(ymin=intercept - 1.96*intercept.sd, ymax=intercept + 1.96*intercept.sd), width=0.2)
+  return(list(sp, ip, ap))
 }
