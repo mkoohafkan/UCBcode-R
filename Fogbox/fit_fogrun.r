@@ -50,12 +50,19 @@ require(qpcR)
 	dl[['blueoak5']]$rundata[dl[['blueoak5']]$rundata$record > 206, 'runfilter'] <- 0
 	dl[['blueoak6']]$rundata[dl[['blueoak6']]$rundata$record < 44 | 
 	                         dl[['blueoak6']]$rundata$record > 210, 'runfilter'] <- 0	
-	# also filter LWS voltage < 274
-	for(i in seq(along=dl))
+	# filter LWS voltage < 274
+	for(i in seq(along=dl)){
 	  dl[[i]]$rundata[dl[[i]]$rundata$LWSmV < 274, 'runfilter'] <- 0
-	# factors for plotting
-	for(i in seq(along=dl))
-	  dl[[i]]$rundata['runfilter'] <- factor(dl[[i]]$rundata$runfilter)
+	# filter minimum mass measurement < variability in dry leaf mass
+	  dl[[i]]$rundata['runfilter'] <- dl[[i]]$rundata$runfilter == 1 & 
+	                                  dl[[i]]$rundata$watermass - 
+									   1.96*dl[[i]]$rundata$watermass.sd >
+									   1.96*dl[[i]]$dryleafmass$stdev
+	  # and ignore NA data
+	  dl[[i]]$rundata[is.na(dl[[i]]$rundata$runfilter), 'runfilter'] <- FALSE
+	  # factors for plotting
+	  dl[[i]]$rundata['runfilter'] <- factor(as.numeric(dl[[i]]$rundata$runfilter))
+	}
 	return(dl)
   }
   
@@ -87,10 +94,29 @@ require(qpcR)
 						     runLWSvolt=sapply(datalist, function(x) max(x$rundata[x$rundata$runfilter == 1,'LWSmV'])),
 							 conversionfactor.avg=sapply(datalist, function(x) x$conversionfactor$avg),
 						     conversionfactor.stdev=sapply(datalist, function(x) x$conversionfactor$stdev))
-    # fit a linear model using the LWSvolt.last values
-    lastmodel <- lm(LWSwater.avg ~ LWSvolt.last, fogsummary, weights=1/LWSwater.stdev)
-	fogsummary['fitresiduals'] <- lastmodel$residuals
-    return(list(data=fogsummary, lwscurve=lastmodel))
+	# add zero data
+	dupdata <- fogsummary
+	dupdata['LWSwater.avg'] <- 0
+	dupdata['LWSvolt.last'] <- sapply(datalist, function(x) mean(x$dryleafvolt$LWSmV))
+	dupdata <- rbind(fogsummary, dupdata)
+	# fit an unweighted linear model using the LWSvolt.last values
+    unweightedmodel <- lm(LWSwater.avg ~ LWSvolt.last, dupdata)
+	# fit a weighted model
+	# DEPRECATED: weighting is insignificant
+	#fitfunc <- function(testrms){
+	#  thisweights <-  abs(1/(testrms + fogsummary$LWSwater.stdev^2))
+	#  if(any(thisweights != abs(thisweights)))
+	#    return(NA)
+	#  thismod <- lm(LWSwater.avg ~ LWSvolt.last, fogsummary, weights=thisweights)
+	#  return(abs(testrms - 1))
+	#}
+	#rms <- optim(summary(unweightedmodel)$sigma - mean(fogsummary$LWSwater.stdev^2), 
+	#             fitfunc, method='Brent', lower = -30, upper = 30)$value
+	#modweights <- 1/(rms + fogsummary$LWSwater.stdev^2)
+    #lastmodel <- lm(LWSwater.avg ~ LWSvolt.last, fogsummary, weights=modweights)
+	#fogsummary['fitresiduals'] <- lastmodel$residuals
+	# return the summary data, weighted model, and unweighted model
+	return(list(data=fogsummary, lwscurve=unweightedmodel))
   }
   calc_lwswater <- function(rd, modfit, LWSarea=32.54){
   # calculate the LWS water mass and surface density based on fitted curve
@@ -171,12 +197,14 @@ fit_fogrun <- function(datalist){
 # dl is the full datalist of outputs from analyze_fogrun()
   # add filter to rundata
   datalist <- filter_rundata(datalist)
-  # get summary data and lws curve
+  # create lws curve
   summarydata <- fit_lwscurve(datalist)
+  # expand add LWS water mass to all rundata
   for(i in seq(along=datalist)){
     datalist[[i]][['rundata']] <- calc_lwswater(datalist[[i]]$rundata, 
 	                                            summarydata$lwscurve)
 	curves <- fit_curves(datalist[[i]]$rundata)
+	# attach models to the trial data
 	datalist[[i]][['lwsmodel']] <- curves[[1]]
 	datalist[[i]][['leafmodel']] <- curves[[2]]
   }
@@ -209,7 +237,7 @@ fit_fogrun <- function(datalist){
   summarydata$data['fitratio.stdev'] <- fitratio.stdev  
   summarydata$data['leafr2'] <- leafr2
   summarydata$data['lwsr2'] <- lwsr2
-  # get prediction of maximum leaf water and LWS water of curve-fitted region\
+  # get prediction of maximum leaf water and LWS water of curve-fitted region
   lwsmodelwatermass.avg <- rep(NA, nrow(summarydata$data))
   lwsmodelwatermass.stdev <- lwsmodelwatermass.avg
   leafmodelwatermass.avg <- lwsmodelwatermass.avg
@@ -239,7 +267,7 @@ fit_fogrun <- function(datalist){
   summarydata[['repavg']] <- merge_replicates(summarydata$data[summarydata$data$ratiofilter,])
   summarydata[['speciesavg']] <- average_by_species(summarydata$data)
   summarydata[['speciesrepavg']] <- average_by_species(summarydata$repavg)
-  
+    
   # add summarydata to datalist
   datalist[['summary']] <- summarydata
   return(datalist)
