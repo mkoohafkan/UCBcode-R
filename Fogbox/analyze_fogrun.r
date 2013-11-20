@@ -16,7 +16,11 @@ require(qpcR)
   	n <- 1
 	while(is.na(as.numeric(substr(s, n, n))))
 	  n <- n + 1
-	return(substr(s, n, n))
+	if(!is.na(as.numeric(substr(s, n, n + 1)))){
+	  return(substr(s, n, n+1))
+	}else{
+	  return(substr(s, n, n))
+	}
   }
   get_replicate <- function(s){
     n <- 1
@@ -38,6 +42,16 @@ require(qpcR)
 	  return(FALSE)
 	}
   }
+  get_area <- function(d, lt){
+    # d is procdata
+	# lt is the leaf area table
+	leafid <- paste(d$species, d$trial, sep='') 
+	# look up leaf area from table
+	la <- lt[lt$trialname == leafid, 'area_cm2']
+	# correct due to 1-in^2 scale is actually 0.9386 in^2 (dammit Ian)
+	return(0.9386*la)
+  }
+  
   calc_with_uncertainty <- function(expr, d, proptype='stat'){
     # expr is an expression, e.g. expression(a - b)
 	# d is a dataframe with columns corresponding to
@@ -181,20 +195,21 @@ require(qpcR)
   }
 ###
 #
-analyze_fogrun <- function(procdata, calibrationstandard=data.frame(avg=5.33, stdev=0)){
+analyze_fogrun <- function(procdata, leaftable, calibrationstandard=data.frame(avg=5.33, stdev=0)){
 # procdata is a list of objects produced by process_fogrun
 # calibrationstandard = the mean and standard error of the
 #   reference mass used for calibrating load cell
 #
-  # fix leaf area since 1-in^2 scale is actually 0.9386 in^2 (dammit Ian)
-  procdata[['leafarea']] <- 0.9386*procdata$leafarea
   # get species
   procdata[['species']] <- get_species(procdata$name)
   procdata[['trial']] <- get_trial(procdata$name)
+   # get leaf area
+  procdata[['leafarea']] <- get_area(procdata, leaftable)  
   procdata[['replicate']] <- get_replicate(procdata$name)
   procdata[['isvertical']] <- is_vertical(procdata$name)
   # calculate the drift
   measdrift <- calc_drift(procdata)
+  procdata[['max_drift']] <- max(measdrift$avg)
   # correct procdata for drift
   # assumes startbasevolt is the earliest set of measurements
   # and endbasevolt is the latest set of measurements
