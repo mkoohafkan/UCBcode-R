@@ -60,7 +60,9 @@ process_fogrun <- function(path){
   # trial name should be first line
   name <- datalines[1]
   # leaf area should be second line, in cm^2
-  leafarea <- as.numeric(datalines[2])
+  # DEPRECATED: NOW READ FROM SEPERATE FILE IN analyze_fogrun()
+  #leafarea <- as.numeric(datalines[2])
+  leafarea <- NA
   # indices for data processing
   startbaseidx <- getmatch('STARTING BASE VOLTAGE', datalines) + 1
   endbaseidx <- getmatch('ENDING BASE VOLTAGE', datalines) + 1
