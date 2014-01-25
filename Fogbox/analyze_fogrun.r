@@ -57,7 +57,8 @@ require(qpcR)
 	# d is a dataframe with columns corresponding to
 	#   expression (e.g. names(d) = c('a', 'b')).
 	#   first row contains means, second row contains sd
-	r <- propagate(expr, d, type=proptype, plot=FALSE)$summary
+	r <- propagate(expr, d, type=proptype, do.sim=TRUE, nsim=10000, 
+	               dist.sim='norm', plot=FALSE)$summary
 	avg <- r$Prop[1]
 	stdev <- r$Prop[2]
 	return(data.frame(avg=avg, stdev=stdev))

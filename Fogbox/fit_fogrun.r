@@ -1,5 +1,4 @@
 # fit_fogrun.r
-require(qpcR)
 #
 ###
   # helper functions
