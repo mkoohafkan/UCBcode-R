@@ -55,6 +55,7 @@ get_bp_model <- function(dframe, rvar, pvar){
 	for(i in seq(length(segfit), 1)){
 		if(is.na(segfit[[i]])) 
 			segfit[[i]] <- NULL
+			warning('breakpoint model not fitted\n')
 	}
 	# if no bp models could be fitted, return NULL
 	if(is.null(segfit)) 
@@ -84,8 +85,8 @@ aic_to_weights <- function(AIC){
 }
 
 # glmulti with specific parameters
-myglm <- function(..., lev=1, meth='h', ic='bic', marg=TRUE){
-	glmulti(..., level=lev, method=meth, crit=ic, marginality=marg)
+myglm <- function(..., lev=1, meth='h', ic='bic', marg=TRUE, makeplot=FALSE){
+	glmulti(..., level=lev, method=meth, crit=ic, marginality=marg, plotty=makeplot)
 }	
 
 pick_model <- function(dataset, response, predictors, exc=c()){
@@ -93,10 +94,10 @@ pick_model <- function(dataset, response, predictors, exc=c()){
 	models <- myglm(response, predictors, dataset, exclude=exc)
 	# fit the z model with bp term and add to model list
 	# get the elevation breakpoint model
-	bpm <- get_bp_model(dataset, r, 'z')
+	#bpm <- get_bp_model(dataset, r, 'z')
 	modelobjs <- models@objects
-	nm <- length(modelobjs) + 1
-	modelobjs[[nm]] <- bpm
+	#nm <- length(modelobjs) + 1
+	#modelobjs[[nm]] <- bpm
 	# recheck model weights with bp model
 	allmodels <- myglm(modelobjs, confsetsize=length(modelobjs), meth='h')
 	return(allmodels)

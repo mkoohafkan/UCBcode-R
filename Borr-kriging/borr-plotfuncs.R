@@ -1,3 +1,4 @@
+require(plyr)
 krigeplot <- function(plotobj, vname, therange){
 	vartype <- unlist(strsplit(paste(vname, collapse=""), "_"))	
 	# set the background color
@@ -17,8 +18,8 @@ krigeplot <- function(plotobj, vname, therange){
 		thelims <- c(round_any(therange[1], 1, f=floor), round_any(therange[3], 1, f=ceiling) )		
 		thebreaks <- thelims
 		thelabs <- thebreaks
-		#thename <- expression(degree~C)
-		thename <- "K"
+		thename <- expression(degree~C)
+		#thename <- "K"
 	} else if(vartype[1] == "humidity"){
 		if(vartype[2] == "avgmin"){
 			bgcolor <- "grey90" # min hum = day hum

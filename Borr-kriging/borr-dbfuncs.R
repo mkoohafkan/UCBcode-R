@@ -42,11 +42,11 @@ getnodeproperties <- function(conn, tbl='xserv_join_map_info', id='deviceid'){
 	return(datafromDB(query, fields, conn)[[1]])
 }
 
-gridtoDF <- function(fpath, responsevar='z'){
+gridtoDF <- function(fpath, predictvar='z'){
 	rawgrid <- read.csv(fpath)
 	unsampled_df <- data.frame(projx=rawgrid[['POINT_X']],
 			                   projy=rawgrid[['POINT_Y']])
-	unsampled_df[responsevar] <- rawgrid[['grid_code']]						
+	unsampled_df[predictvar] <- rawgrid[['GRID_CODE']]						
 	return(cleandata(unsampled_df))
 }
 
@@ -73,12 +73,9 @@ cleandata <- function(dataset){
 		#cleandata <- ds*9/5 + 32	# to Fahrenheit
 		return(cleandata)
 	}
-	clean.aspect <- function(ds){ # convert to categorical data
-		# Categories are N, S, E, W, F
+	clean.aspect <- function(ds){ # convert to 'degrees from 200'
+		# aspect = 200 is south-facing slope
 		# NA are bad data
-		# if auxdata (boolean array of size dataset) is provided, it is assumed
-		# that FALSE entries are flat due to negligible slope
-		# first categorize data
 		flatmask <- ds < 0
 		cleandata <- abs(200 - ds)
 		cleandata[flatmask] <- 0

@@ -1,3 +1,6 @@
+require(gstat)
+require(sp)
+require(lattice)
 annotatedplot <- function(krigeobj){
 	annotatedplot <- xyplot(gamma ~ dist, data = krigeobj$exp_var, panel = automap:::autokrige.vgm.panel,
 			labels = as.character(krigeobj$exp_var$np), shift = 0.03, model = krigeobj$var_model,
@@ -7,6 +10,12 @@ annotatedplot <- function(krigeobj){
 			main = "Experimental variogram and fitted variogram model", mode = "direct") 
 	return(annotatedplot)
 }
+
+gg_variogram <- function(krigeobj){
+  ggplot(krigeobj$exp_var, aes(x=dist, y=gamma)) + geom_point(color='blue') + geom_text(aes(label=np)) 
+  
+}
+
 
 afvmod = function(formula, input_data, model = c("Sph", "Exp", "Gau", "Ste"),
 		kappa = c(0.05, seq(0.2, 2, 0.1), 5, 10), fix.values = c(NA,NA,NA),
